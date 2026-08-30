@@ -4,19 +4,19 @@ import { API_URL } from '../config'
 import Header from '../components/Header'
 
 /**
- * Hits /admin/me to check auth state, then redirects:
- *   authenticated  → /admin/home
- *   unauthenticated → /admin/login
+ * Hits /organizer/me to check auth state, then redirects:
+ *   authenticated   → /organizer/home
+ *   unauthenticated → /organizer/login
  */
-function AdminGuard() {
+function OrganizerGuard() {
   const [destination, setDestination] = useState(null)
 
   useEffect(() => {
-    fetch(`${API_URL}/admin/me`, { credentials: 'include' })
+    fetch(`${API_URL}/organizer/me`, { credentials: 'include' })
       .then((res) => {
-        setDestination(res.ok ? '/admin/home' : '/admin/login')
+        setDestination(res.ok ? '/organizer/home' : '/organizer/login')
       })
-      .catch(() => setDestination('/admin/login'))
+      .catch(() => setDestination('/organizer/login'))
   }, [])
 
   if (!destination) {
@@ -24,7 +24,7 @@ function AdminGuard() {
       <>
         <Header />
         <main className="app">
-          <p className="loading">Checking session…</p>
+          <p className="loading">Verifying session…</p>
         </main>
       </>
     )
@@ -33,4 +33,4 @@ function AdminGuard() {
   return <Navigate to={destination} replace />
 }
 
-export default AdminGuard
+export default OrganizerGuard

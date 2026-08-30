@@ -5,7 +5,7 @@ from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Admin
+from ..models import Admin, Organizer
 
 # ── Config ─────────────────────────────────────────────────────────────────
 # TODO: move to env var before deploying
@@ -45,3 +45,21 @@ def get_current_admin(
     if not admin:
         raise HTTPException(status_code=401, detail="Admin not found.")
     return admin
+
+
+def get_current_organizer(
+    organizer_access_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+) -> Organizer:
+    """FastAPI dependency — resolves the logged-in Organizer or raises 401."""
+    if not organizer_access_token:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    username = decode_token(organizer_access_token)
+    if not username:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+    organizer = db.query(Organizer).filter(Organizer.username == username).first()
+    if not organizer:
+        raise HTTPException(status_code=401, detail="Organizer not found.")
+    if not organizer.is_active:
+        raise HTTPException(status_code=401, detail="Organizer account is deactivated.")
+    return organizer

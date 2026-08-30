@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_URL } from '../config'
 import PasswordInput from '../components/PasswordInput'
+import Header from '../components/Header'
 
 function AdminHome() {
   const navigate = useNavigate()
@@ -83,8 +84,7 @@ function AdminHome() {
 
   return (
     <>
-      <header className="app-header">
-        <span className="site-name">Study Randomizer</span>
+      <Header>
         {admin && (
           <button
             id="btn-logout"
@@ -95,7 +95,8 @@ function AdminHome() {
             {loggingOut ? 'Logging out…' : 'Log out'}
           </button>
         )}
-      </header>
+      </Header>
+
 
       <main className="app">
         <h1>Admin Dashboard</h1>

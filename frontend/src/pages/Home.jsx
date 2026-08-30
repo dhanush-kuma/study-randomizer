@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { API_URL } from '../config'
 import PasswordInput from '../components/PasswordInput'
+import Header from '../components/Header'
 
 function Home() {
   const [phase, setPhase] = useState('loading')
@@ -55,9 +56,8 @@ function Home() {
 
   return (
     <>
-      <header className="app-header">
-        <span className="site-name">Study Randomizer</span>
-      </header>
+      <Header />
+
 
       <main className="app">
         <h1>Open Source Study Randomizer</h1>
