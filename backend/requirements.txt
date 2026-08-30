@@ -1,2 +1,9 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+alembic
+asyncpg
+psycopg2-binary
+sqlalchemy
+bcrypt
+python-jose[cryptography]
+python-multipart

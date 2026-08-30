@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from .routers import setup, admin
+
+app = FastAPI(title="Study Randomizer API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -11,7 +13,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
-def hello_world():
-    return {"message": "Hello World"}
+app.include_router(setup.router)
+app.include_router(admin.router)

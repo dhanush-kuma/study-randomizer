@@ -1,31 +1,25 @@
-import { useEffect, useState } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 
-const API_URL = 'http://localhost:8000'
+import Home from './pages/Home'
+import AdminGuard from './pages/AdminGuard'
+import AdminLogin from './pages/AdminLogin'
+import AdminHome from './pages/AdminHome'
 
 function App() {
-  const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    fetch(`${API_URL}/`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch from backend')
-        return res.json()
-      })
-      .then((data) => setMessage(data.message))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [])
-
   return (
-    <main className="app">
-      <h1>Open Source Study Randomizer</h1>
-      {loading && <p>Loading...</p>}
-      {error && <p className="error">{error}</p>}
-      {!loading && !error && <p className="message">{message}</p>}
-    </main>
+    <Routes>
+      {/* Public — system status / first-run setup */}
+      <Route path="/" element={<Home />} />
+
+      {/* Admin area */}
+      <Route path="/admin" element={<AdminGuard />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/home" element={<AdminHome />} />
+
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
