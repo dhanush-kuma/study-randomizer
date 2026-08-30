@@ -1,0 +1,17 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 1rem;
+}
+
+.message {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.error {
+  color: #e74c3c;
+}
