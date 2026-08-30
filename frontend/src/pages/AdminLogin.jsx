@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_URL } from '../config'
+import PasswordInput from '../components/PasswordInput'
 
 function AdminLogin() {
   const navigate = useNavigate()
@@ -69,9 +70,8 @@ function AdminLogin() {
 
             <div className="field">
               <label htmlFor="admin-password">Password</label>
-              <input
+              <PasswordInput
                 id="admin-password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"

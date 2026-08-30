@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_URL } from '../config'
+import PasswordInput from '../components/PasswordInput'
 
 function Home() {
   const [phase, setPhase] = useState('loading')
@@ -80,7 +81,7 @@ function Home() {
               </div>
               <div className="field">
                 <label htmlFor="password">Password</label>
-                <input id="password" type="password" value={password}
+                <PasswordInput id="password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min. 6 characters" required autoComplete="new-password" />
               </div>

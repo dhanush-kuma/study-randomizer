@@ -153,6 +153,35 @@
   box-shadow: 0 0 0 2px rgba(42, 100, 150, 0.12);
 }
 
+/* ── Password input with eye toggle ──────────────────────── */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper .password-input {
+  width: 100%;
+  padding-right: 38px; /* room for the eye button */
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #888;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.password-toggle:hover {
+  color: #2a6496;
+}
+
 /* ── Primary button ───────────────────────────────────────── */
 .btn-primary {
   font-size: 14px;
@@ -198,5 +227,150 @@
 
 .btn-secondary:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Section header ───────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #1a1a2e;
+}
+
+/* ── Form action row ──────────────────────────────────────── */
+.form-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ── Success message ──────────────────────────────────────── */
+.success-msg {
+  font-size: 14px;
+  color: #1a6b2a;
+  background: #f0faf2;
+  border: 1px solid #b7dfbe;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+/* ── Empty state ──────────────────────────────────────────── */
+.empty-state {
+  font-size: 14px;
+  color: #888;
+  padding: 20px 0;
+  border-top: 1px solid #e0e0e0;
+  margin-top: 4px;
+}
+
+/* ── Data table ───────────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.data-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #666;
+  padding: 8px 12px;
+  border-bottom: 2px solid #d0d0d0;
+  background: #f8f9fa;
+}
+
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8e8e8;
+  color: #222;
+  vertical-align: middle;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover td {
+  background: #f8f9fa;
+}
+
+/* ── Status badges ────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.badge--active {
+  color: #1a6b2a;
+  background: #e6f4ea;
+  border: 1px solid #b7dfbe;
+}
+
+.badge--inactive {
+  color: #666;
+  background: #f0f0f0;
+  border: 1px solid #d0d0d0;
+}
+
+/* ── Table action buttons ─────────────────────────────────── */
+.btn-danger,
+.btn-restore {
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 600;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-danger {
+  color: #b91c1c;
+  background: #fff5f5;
+  border-color: #fca5a5;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  color: #ffffff;
+  border-color: #b91c1c;
+}
+
+.btn-restore {
+  color: #1a6b2a;
+  background: #f0faf2;
+  border-color: #b7dfbe;
+}
+
+.btn-restore:hover:not(:disabled) {
+  background: #1a6b2a;
+  color: #ffffff;
+  border-color: #1a6b2a;
+}
+
+.btn-danger:disabled,
+.btn-restore:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }

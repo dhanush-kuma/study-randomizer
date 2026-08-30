@@ -1,30 +1,84 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_URL } from '../config'
+import PasswordInput from '../components/PasswordInput'
 
 function AdminHome() {
   const navigate = useNavigate()
   const [admin, setAdmin] = useState(null)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  // Verify the session is still valid when this page mounts
+  // Organizer list & form state
+  const [organizers, setOrganizers] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [orgUsername, setOrgUsername] = useState('')
+  const [orgPassword, setOrgPassword] = useState('')
+  const [formError, setFormError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [successMsg, setSuccessMsg] = useState(null)
+  const [togglingId, setTogglingId] = useState(null)  // id of row being toggled
+
+  // Verify session on mount and load organizers
   useEffect(() => {
     fetch(`${API_URL}/admin/me`, { credentials: 'include' })
       .then((res) => {
-        if (!res.ok) { navigate('/admin/login', { replace: true }); return }
+        if (!res.ok) { navigate('/admin/login', { replace: true }); return null }
         return res.json()
       })
-      .then((data) => data && setAdmin(data))
+      .then((data) => { if (data) { setAdmin(data); loadOrganizers() } })
       .catch(() => navigate('/admin/login', { replace: true }))
   }, [navigate])
 
+  function loadOrganizers() {
+    fetch(`${API_URL}/admin/organizers/`, { credentials: 'include' })
+      .then((res) => res.ok ? res.json() : [])
+      .then(setOrganizers)
+      .catch(() => {})
+  }
+
   async function handleLogout() {
     setLoggingOut(true)
-    await fetch(`${API_URL}/admin/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    })
+    await fetch(`${API_URL}/admin/logout`, { method: 'POST', credentials: 'include' })
     navigate('/admin/login', { replace: true })
+  }
+
+  async function handleCreateOrganizer(e) {
+    e.preventDefault()
+    setFormError(null)
+    setSuccessMsg(null)
+    setSubmitting(true)
+
+    try {
+      const res = await fetch(`${API_URL}/admin/organizers/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username: orgUsername, password: orgPassword }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setFormError(data.detail || 'Failed to create organizer.')
+        return
+      }
+
+      setSuccessMsg(`Organizer "${data.username}" created successfully.`)
+      setOrgUsername('')
+      setOrgPassword('')
+      setShowForm(false)
+      loadOrganizers()
+    } catch {
+      setFormError('Could not connect to backend.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function cancelForm() {
+    setShowForm(false)
+    setFormError(null)
+    setOrgUsername('')
+    setOrgPassword('')
   }
 
   return (
@@ -49,12 +103,134 @@ function AdminHome() {
         {!admin ? (
           <p className="loading">Loading…</p>
         ) : (
-          <div className="status-card">
-            <div className="label">Session</div>
-            <p className="message">
-              ✓ Login successful — welcome, <strong>{admin.username}</strong>.
-            </p>
-          </div>
+          <>
+            {/* ── Welcome card ── */}
+            <div className="status-card" style={{ marginBottom: '28px' }}>
+              <div className="label">Session</div>
+              <p className="message">
+                ✓ Logged in as <strong>{admin.username}</strong>
+              </p>
+            </div>
+
+            {/* ── Organizer section ── */}
+            <div className="section-header">
+              <h2 className="section-title">Organizers</h2>
+              {!showForm && (
+                <button
+                  id="btn-create-organizer"
+                  className="btn-primary"
+                  onClick={() => { setSuccessMsg(null); setShowForm(true) }}
+                >
+                  + Create Organizer
+                </button>
+              )}
+            </div>
+
+            {/* Success banner */}
+            {successMsg && (
+              <p className="success-msg">{successMsg}</p>
+            )}
+
+            {/* ── Create organizer form ── */}
+            {showForm && (
+              <div className="setup-card" style={{ marginBottom: '20px' }}>
+                <div className="setup-card__header">
+                  <span className="setup-badge">New Organizer</span>
+                  <h2>Create Organizer Account</h2>
+                  <p>The organizer will be able to manage study sessions.</p>
+                </div>
+                <form className="setup-form" onSubmit={handleCreateOrganizer} noValidate>
+                  <div className="field">
+                    <label htmlFor="org-username">Username</label>
+                    <input
+                      id="org-username"
+                      type="text"
+                      value={orgUsername}
+                      onChange={(e) => setOrgUsername(e.target.value)}
+                      placeholder="organizer_name"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="org-password">Password</label>
+                    <PasswordInput
+                      id="org-password"
+                      value={orgPassword}
+                      onChange={(e) => setOrgPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                      required
+                    />
+                  </div>
+                  {formError && <p className="error">{formError}</p>}
+                  <div className="form-actions">
+                    <button id="btn-org-submit" type="submit" className="btn-primary" disabled={submitting}>
+                      {submitting ? 'Creating…' : 'Create Organizer'}
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={cancelForm}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* ── Organizer table ── */}
+            {organizers.length === 0 ? (
+              <p className="empty-state">No organizers yet. Create one above.</p>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Username</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizers.map((org) => (
+                    <tr key={org.id}>
+                      <td>{org.id}</td>
+                      <td>{org.username}</td>
+                      <td>
+                        <span className={`badge badge--${org.is_active ? 'active' : 'inactive'}`}>
+                          {org.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className={org.is_active ? 'btn-danger' : 'btn-restore'}
+                          disabled={togglingId === org.id}
+                          onClick={async () => {
+                            setTogglingId(org.id)
+                            try {
+                              const res = await fetch(
+                                `${API_URL}/admin/organizers/${org.id}/status`,
+                                { method: 'PATCH', credentials: 'include' }
+                              )
+                              if (res.ok) {
+                                const updated = await res.json()
+                                setOrganizers((prev) =>
+                                  prev.map((o) => (o.id === updated.id ? updated : o))
+                                )
+                              }
+                            } finally {
+                              setTogglingId(null)
+                            }
+                          }}
+                        >
+                          {togglingId === org.id
+                            ? '…'
+                            : org.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
         )}
       </main>
     </>
