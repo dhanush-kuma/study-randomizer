@@ -1,10 +1,28 @@
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel, field_validator
 
+PASSWORD_MIN_LENGTH = 12
+PASSWORD_MAX_LENGTH = 128
+
+
+def validate_new_password(v: str) -> str:
+    if len(v) < PASSWORD_MIN_LENGTH:
+        raise ValueError(f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
+    if len(v) > PASSWORD_MAX_LENGTH:
+        raise ValueError(f"Password must be at most {PASSWORD_MAX_LENGTH} characters")
+    return v
+
+
+def validate_login_password(v: str) -> str:
+    if len(v) > PASSWORD_MAX_LENGTH:
+        raise ValueError("Password is too long")
+    return v
 
 
 class SetupRequest(BaseModel):
+    setup_token: str = ""
     username: str
     password: str
 
@@ -18,14 +36,17 @@ class SetupRequest(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def password_min_length(cls, v: str) -> str:
-        if len(v) < 6:
-            raise ValueError("Password must be at least 6 characters")
-        return v
+    def password_strength(cls, v: str) -> str:
+        return validate_new_password(v)
 
 
 class StatusResponse(BaseModel):
     initialized: bool
+    message: str
+
+
+class HealthResponse(BaseModel):
+    status: str
     message: str
 
 
@@ -34,10 +55,14 @@ class SetupResponse(BaseModel):
     message: str
 
 
-# ── Admin auth schemas ──────────────────────────────────────────────────────
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_bounds(cls, v: str) -> str:
+        return validate_login_password(v)
 
 
 class AdminInfo(BaseModel):
@@ -48,7 +73,11 @@ class MessageResponse(BaseModel):
     message: str
 
 
-# ── Organizer schemas ───────────────────────────────────────────────────────
+class LoginResponse(BaseModel):
+    message: str
+    csrf_token: str
+
+
 class CreateOrganizerRequest(BaseModel):
     username: str
     password: str
@@ -63,10 +92,8 @@ class CreateOrganizerRequest(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def password_min_length(cls, v: str) -> str:
-        if len(v) < 6:
-            raise ValueError("Password must be at least 6 characters")
-        return v
+    def password_strength(cls, v: str) -> str:
+        return validate_new_password(v)
 
 
 class OrganizerOut(BaseModel):
@@ -81,7 +108,6 @@ class OrganizerInfo(BaseModel):
     username: str
 
 
-# ── Treatment Arm schemas ───────────────────────────────────────────────────
 class TreatmentArmCreate(BaseModel):
     name: str
     short_code: str
@@ -116,7 +142,6 @@ class TreatmentArmOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Study schemas ───────────────────────────────────────────────────────────
 class StudyCreate(BaseModel):
     title: str
     protocol_code: str
@@ -124,7 +149,6 @@ class StudyCreate(BaseModel):
     blinding_type: str = "Double-Blind"
     target_sample_size: Optional[int] = None
     randomization_method: str = "Permuted Block"
-    random_seed: Optional[str] = None
     block_size_rules: Optional[str] = None
     emergency_unblinding_allowed: bool = True
     treatment_arms: list[TreatmentArmCreate] = []
@@ -145,7 +169,6 @@ class StudyUpdate(BaseModel):
     blinding_type: Optional[str] = None
     target_sample_size: Optional[int] = None
     randomization_method: Optional[str] = None
-    random_seed: Optional[str] = None
     block_size_rules: Optional[str] = None
     emergency_unblinding_allowed: Optional[bool] = None
     status: Optional[str] = None
@@ -160,7 +183,6 @@ class StudyOut(BaseModel):
     blinding_type: str
     target_sample_size: Optional[int] = None
     randomization_method: str
-    random_seed: Optional[str] = None
     block_size_rules: Optional[str] = None
     emergency_unblinding_allowed: bool
     status: str
@@ -169,6 +191,3 @@ class StudyOut(BaseModel):
     treatment_arms: list[TreatmentArmOut] = []
 
     model_config = {"from_attributes": True}
-
-
-

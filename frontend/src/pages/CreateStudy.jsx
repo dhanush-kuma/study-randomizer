@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { API_URL } from '../config'
+import { apiFetch } from '../api'
 import Header from '../components/Header'
 
 function CreateStudy() {
@@ -14,7 +14,6 @@ function CreateStudy() {
   const [blindingType, setBlindingType] = useState('Double-Blind')
   const [targetSampleSize, setTargetSampleSize] = useState('')
   const [randomizationMethod, setRandomizationMethod] = useState('Permuted Block')
-  const [randomSeed, setRandomSeed] = useState('')
   const [blockSizeRules, setBlockSizeRules] = useState('')
   const [emergencyUnblinding, setEmergencyUnblinding] = useState(true)
 
@@ -29,7 +28,7 @@ function CreateStudy() {
 
   // Verify session on mount
   useEffect(() => {
-    fetch(`${API_URL}/organizer/me`, { credentials: 'include' })
+    apiFetch('/organizer/me')
       .then((res) => {
         if (!res.ok) {
           navigate('/organizer/login', { replace: true })
@@ -93,7 +92,6 @@ function CreateStudy() {
       blinding_type: blindingType,
       target_sample_size: targetSampleSize ? parseInt(targetSampleSize, 10) : null,
       randomization_method: randomizationMethod,
-      random_seed: randomSeed.trim() || null,
       block_size_rules: blockSizeRules.trim() || null,
       emergency_unblinding_allowed: emergencyUnblinding,
       treatment_arms: treatmentArms.map((arm) => ({
@@ -105,11 +103,9 @@ function CreateStudy() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/organizer/studies/`, {
+      const res = await apiFetch('/organizer/studies/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
+        json: payload,
       })
       const data = await res.json()
 
@@ -245,18 +241,6 @@ function CreateStudy() {
                     <option value="Simple Random">Simple Random</option>
                     <option value="Minimization">Minimization</option>
                   </select>
-                </div>
-
-                {/* Random Seed */}
-                <div className="field">
-                  <label htmlFor="random-seed">Random Seed</label>
-                  <input
-                    id="random-seed"
-                    type="text"
-                    value={randomSeed}
-                    onChange={(e) => setRandomSeed(e.target.value)}
-                    placeholder="e.g. 4829103 or seed string"
-                  />
                 </div>
 
                 {/* Block Size Rules */}

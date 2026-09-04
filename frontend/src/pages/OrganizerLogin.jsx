@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { API_URL } from '../config'
+import { apiFetch, setCsrfToken } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
@@ -17,11 +17,9 @@ function OrganizerLogin() {
     setSubmitting(true)
 
     try {
-      const res = await fetch(`${API_URL}/organizer/login`, {
+      const res = await apiFetch('/organizer/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // needed for the cookie to be set
-        body: JSON.stringify({ username, password }),
+        json: { username, password },
       })
       const data = await res.json()
 
@@ -30,6 +28,7 @@ function OrganizerLogin() {
         return
       }
 
+      setCsrfToken(data.csrf_token)
       navigate('/organizer/home', { replace: true })
     } catch {
       setError('Could not connect to backend.')

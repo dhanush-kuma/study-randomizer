@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { API_URL } from '../config'
+import { apiFetch, clearCsrfToken } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
@@ -21,7 +21,7 @@ function AdminHome() {
 
   // Verify session on mount and load organizers
   useEffect(() => {
-    fetch(`${API_URL}/admin/me`, { credentials: 'include' })
+    apiFetch('/admin/me')
       .then((res) => {
         if (!res.ok) { navigate('/admin/login', { replace: true }); return null }
         return res.json()
@@ -31,7 +31,7 @@ function AdminHome() {
   }, [navigate])
 
   function loadOrganizers() {
-    fetch(`${API_URL}/admin/organizers/`, { credentials: 'include' })
+    apiFetch('/admin/organizers/')
       .then((res) => res.ok ? res.json() : [])
       .then(setOrganizers)
       .catch(() => {})
@@ -39,7 +39,8 @@ function AdminHome() {
 
   async function handleLogout() {
     setLoggingOut(true)
-    await fetch(`${API_URL}/admin/logout`, { method: 'POST', credentials: 'include' })
+    await apiFetch('/admin/logout', { method: 'POST' })
+    clearCsrfToken()
     navigate('/admin/login', { replace: true })
   }
 
@@ -50,11 +51,9 @@ function AdminHome() {
     setSubmitting(true)
 
     try {
-      const res = await fetch(`${API_URL}/admin/organizers/`, {
+      const res = await apiFetch('/admin/organizers/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ username: orgUsername, password: orgPassword }),
+        json: { username: orgUsername, password: orgPassword },
       })
       const data = await res.json()
 
@@ -159,7 +158,7 @@ function AdminHome() {
                       id="org-password"
                       value={orgPassword}
                       onChange={(e) => setOrgPassword(e.target.value)}
-                      placeholder="Min. 6 characters"
+                      placeholder="Min. 12 characters"
                       required
                     />
                   </div>
@@ -206,9 +205,9 @@ function AdminHome() {
                           onClick={async () => {
                             setTogglingId(org.id)
                             try {
-                              const res = await fetch(
-                                `${API_URL}/admin/organizers/${org.id}/status`,
-                                { method: 'PATCH', credentials: 'include' }
+                              const res = await apiFetch(
+                                `/admin/organizers/${org.id}/status`,
+                                { method: 'PATCH' }
                               )
                               if (res.ok) {
                                 const updated = await res.json()

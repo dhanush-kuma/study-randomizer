@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { API_URL } from '../config'
+import { apiFetch } from '../api'
 import Header from '../components/Header'
 
 /**
@@ -12,7 +12,7 @@ function AdminGuard() {
   const [destination, setDestination] = useState(null)
 
   useEffect(() => {
-    fetch(`${API_URL}/admin/me`, { credentials: 'include' })
+    apiFetch('/admin/me')
       .then((res) => {
         setDestination(res.ok ? '/admin/home' : '/admin/login')
       })

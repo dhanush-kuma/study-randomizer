@@ -1,63 +1,87 @@
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
-from ..config import clear_auth_cookie, set_auth_cookie
+from ..config import clear_auth_cookie, clear_csrf_cookie, set_auth_cookie, set_csrf_cookie
+from ..core.audit import audit
+from ..core.rate_limit import limiter
+from ..core.security import (
+    ROLE_ORGANIZER,
+    create_access_token,
+    get_current_organizer,
+    revoke_token,
+)
 from ..database import get_db
 from ..models import Organizer, Study, TreatmentArm
 from ..schemas import (
     LoginRequest,
+    LoginResponse,
     MessageResponse,
     OrganizerInfo,
     StudyCreate,
     StudyOut,
 )
-from ..core.security import create_access_token, get_current_organizer
 
 router = APIRouter(prefix="/organizer", tags=["organizer"])
 
-
 COOKIE_NAME = "organizer_access_token"
-COOKIE_MAX_AGE = 60 * 60 * 24  # 24 hours in seconds
+COOKIE_MAX_AGE = 60 * 60 * 24
 
 
 @router.get("/me", response_model=OrganizerInfo)
 def get_me(current_organizer: Organizer = Depends(get_current_organizer)):
-    """Return the currently logged-in organizer's info. 401 if not authenticated."""
     return OrganizerInfo(username=current_organizer.username)
 
 
-@router.post("/login", response_model=MessageResponse)
+@router.post("/login", response_model=LoginResponse)
+@limiter.limit("5/minute")
 def login(
+    request: Request,
     payload: LoginRequest,
     response: Response,
     db: Session = Depends(get_db),
 ):
-    """Verify organizer credentials and set an HTTP-only JWT cookie."""
     organizer = (
         db.query(Organizer).filter(Organizer.username == payload.username).first()
     )
     if not organizer or not bcrypt.checkpw(
         payload.password.encode(), organizer.password_hash.encode()
     ):
+        audit(
+            "organizer.login.failed",
+            username=payload.username,
+            ip=request.client.host if request.client else None,
+        )
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
     if not organizer.is_active:
+        audit("organizer.login.failed", username=payload.username, reason="deactivated")
         raise HTTPException(status_code=401, detail="Organizer account is deactivated.")
 
-    token = create_access_token(organizer.username)
+    token = create_access_token(organizer.username, ROLE_ORGANIZER)
     set_auth_cookie(response, COOKIE_NAME, token, COOKIE_MAX_AGE)
-    return MessageResponse(message="Login successful.")
+    csrf_token = set_csrf_cookie(response, COOKIE_MAX_AGE)
+    audit(
+        "organizer.login.success",
+        username=organizer.username,
+        ip=request.client.host if request.client else None,
+    )
+    return LoginResponse(message="Login successful.", csrf_token=csrf_token)
 
 
 @router.post("/logout", response_model=MessageResponse)
-def logout(response: Response):
-    """Clear the organizer JWT cookie."""
+def logout(
+    response: Response,
+    organizer_access_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    revoke_token(organizer_access_token, db)
     clear_auth_cookie(response, COOKIE_NAME)
+    clear_csrf_cookie(response)
+    audit("organizer.logout", username=current_organizer.username)
     return MessageResponse(message="Logged out successfully.")
 
-
-# ── Study Management ───────────────────────────────────────────────────────
 
 @router.post("/studies/", response_model=StudyOut, status_code=201)
 def create_study(
@@ -65,7 +89,6 @@ def create_study(
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    """Create a new study managed by the authenticated organizer."""
     existing = (
         db.query(Study)
         .filter(Study.protocol_code == payload.protocol_code.strip())
@@ -85,15 +108,15 @@ def create_study(
         blinding_type=payload.blinding_type,
         target_sample_size=payload.target_sample_size,
         randomization_method=payload.randomization_method,
-        random_seed=payload.random_seed.strip() if payload.random_seed else None,
+        random_seed=None,
         block_size_rules=payload.block_size_rules.strip()
         if payload.block_size_rules
         else None,
         emergency_unblinding_allowed=payload.emergency_unblinding_allowed,
-        status="Draft",  # Initial status is always Draft until randomization schedule exists
+        status="Draft",
     )
     db.add(study)
-    db.flush()  # assign study.id
+    db.flush()
 
     for arm_data in payload.treatment_arms:
         arm = TreatmentArm(
@@ -107,8 +130,13 @@ def create_study(
 
     db.commit()
     db.refresh(study)
+    audit(
+        "study.created",
+        study_id=study.id,
+        protocol_code=study.protocol_code,
+        organizer=current_organizer.username,
+    )
     return study
-
 
 
 @router.get("/studies/", response_model=list[StudyOut])
@@ -116,11 +144,9 @@ def list_studies(
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    """List all studies belonging to the authenticated organizer."""
     return (
         db.query(Study)
         .filter(Study.organizer_id == current_organizer.id)
         .order_by(Study.created_at.desc())
         .all()
     )
-

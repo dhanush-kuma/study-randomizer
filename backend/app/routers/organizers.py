@@ -2,10 +2,11 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from ..core.audit import audit
+from ..core.security import get_current_admin
 from ..database import get_db
 from ..models import Admin, Organizer
 from ..schemas import CreateOrganizerRequest, OrganizerOut
-from ..core.security import get_current_admin
 
 router = APIRouter(prefix="/admin/organizers", tags=["organizers"])
 
@@ -14,9 +15,8 @@ router = APIRouter(prefix="/admin/organizers", tags=["organizers"])
 def create_organizer(
     payload: CreateOrganizerRequest,
     db: Session = Depends(get_db),
-    _: Admin = Depends(get_current_admin),
+    current_admin: Admin = Depends(get_current_admin),
 ):
-    """Create a new organizer account. Admin-only."""
     existing = db.query(Organizer).filter(
         Organizer.username == payload.username.strip()
     ).first()
@@ -35,6 +35,11 @@ def create_organizer(
     db.add(organizer)
     db.commit()
     db.refresh(organizer)
+    audit(
+        "organizer.created",
+        organizer=organizer.username,
+        admin=current_admin.username,
+    )
     return organizer
 
 
@@ -43,7 +48,6 @@ def list_organizers(
     db: Session = Depends(get_db),
     _: Admin = Depends(get_current_admin),
 ):
-    """List all organizers. Admin-only."""
     return db.query(Organizer).order_by(Organizer.created_at.desc()).all()
 
 
@@ -51,9 +55,8 @@ def list_organizers(
 def toggle_organizer_status(
     organizer_id: int,
     db: Session = Depends(get_db),
-    _: Admin = Depends(get_current_admin),
+    current_admin: Admin = Depends(get_current_admin),
 ):
-    """Toggle an organizer's is_active status. Admin-only."""
     organizer = db.query(Organizer).filter(Organizer.id == organizer_id).first()
     if not organizer:
         raise HTTPException(status_code=404, detail="Organizer not found.")
@@ -61,4 +64,10 @@ def toggle_organizer_status(
     organizer.is_active = not organizer.is_active
     db.commit()
     db.refresh(organizer)
+    audit(
+        "organizer.status_changed",
+        organizer=organizer.username,
+        is_active=organizer.is_active,
+        admin=current_admin.username,
+    )
     return organizer

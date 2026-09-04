@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { API_URL } from '../config'
+import { apiFetch, setCsrfToken } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
@@ -17,11 +17,9 @@ function AdminLogin() {
     setSubmitting(true)
 
     try {
-      const res = await fetch(`${API_URL}/admin/login`, {
+      const res = await apiFetch('/admin/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',        // needed for the cookie to be set
-        body: JSON.stringify({ username, password }),
+        json: { username, password },
       })
       const data = await res.json()
 
@@ -30,6 +28,7 @@ function AdminLogin() {
         return
       }
 
+      setCsrfToken(data.csrf_token)
       navigate('/admin/home', { replace: true })
     } catch {
       setError('Could not connect to backend.')

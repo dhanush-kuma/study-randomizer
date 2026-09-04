@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { API_URL } from '../config'
+import { apiFetch, clearCsrfToken } from '../api'
 import Header from '../components/Header'
 
 function OrganizerHome() {
@@ -12,7 +12,7 @@ function OrganizerHome() {
   const successMsg = location.state?.successMsg || null
 
   function loadStudies() {
-    fetch(`${API_URL}/organizer/studies/`, { credentials: 'include' })
+    apiFetch('/organizer/studies/')
       .then((res) => (res.ok ? res.json() : []))
       .then(setStudies)
       .catch(() => {})
@@ -20,7 +20,7 @@ function OrganizerHome() {
 
   // Verify session on mount and load studies
   useEffect(() => {
-    fetch(`${API_URL}/organizer/me`, { credentials: 'include' })
+    apiFetch('/organizer/me')
       .then((res) => {
         if (!res.ok) {
           navigate('/organizer/login', { replace: true })
@@ -41,10 +41,8 @@ function OrganizerHome() {
 
     setLoggingOut(true)
     try {
-      await fetch(`${API_URL}/organizer/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      })
+      await apiFetch('/organizer/logout', { method: 'POST' })
+      clearCsrfToken()
     } catch {
       // Ignore network errors on logout
     }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { API_URL } from '../config'
+import { apiFetch } from '../api'
 import Header from '../components/Header'
 
 /**
@@ -12,7 +12,7 @@ function OrganizerGuard() {
   const [destination, setDestination] = useState(null)
 
   useEffect(() => {
-    fetch(`${API_URL}/organizer/me`, { credentials: 'include' })
+    apiFetch('/organizer/me')
       .then((res) => {
         setDestination(res.ok ? '/organizer/home' : '/organizer/login')
       })
