@@ -27,6 +27,12 @@ function Header({ children }) {
           >
             Organizer
           </NavLink>
+          <NavLink
+            to="/doctor"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+          >
+            Doctor
+          </NavLink>
         </nav>
       </div>
       {children}

@@ -9,30 +9,35 @@ import OrganizerGuard from './pages/OrganizerGuard'
 import OrganizerLogin from './pages/OrganizerLogin'
 import OrganizerHome from './pages/OrganizerHome'
 import CreateStudy from './pages/CreateStudy'
+import StudyInvites from './pages/StudyInvites'
+import DoctorGuard from './pages/DoctorGuard'
+import DoctorLogin from './pages/DoctorLogin'
+import DoctorSignup from './pages/DoctorSignup'
+import DoctorHome from './pages/DoctorHome'
 
 function App() {
   return (
     <Routes>
-      {/* Public — system status / first-run setup */}
       <Route path="/" element={<Home />} />
 
-      {/* Admin area */}
       <Route path="/admin" element={<AdminGuard />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/home" element={<AdminHome />} />
 
-      {/* Organizer area */}
       <Route path="/organizer" element={<OrganizerGuard />} />
       <Route path="/organizer/login" element={<OrganizerLogin />} />
       <Route path="/organizer/home" element={<OrganizerHome />} />
       <Route path="/organizer/studies/new" element={<CreateStudy />} />
+      <Route path="/organizer/studies/:studyId/invites" element={<StudyInvites />} />
 
+      <Route path="/doctor" element={<DoctorGuard />} />
+      <Route path="/doctor/login" element={<DoctorLogin />} />
+      <Route path="/doctor/signup" element={<DoctorSignup />} />
+      <Route path="/doctor/home" element={<DoctorHome />} />
 
-      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
-
 
 export default App

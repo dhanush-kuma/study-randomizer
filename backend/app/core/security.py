@@ -7,12 +7,13 @@ from sqlalchemy.orm import Session
 
 from ..config import SECRET_KEY
 from ..database import get_db
-from ..models import Admin, Organizer, RevokedToken
+from ..models import Admin, Doctor, Organizer, RevokedToken
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 ROLE_ADMIN = "admin"
 ROLE_ORGANIZER = "organizer"
+ROLE_DOCTOR = "doctor"
 
 
 def create_access_token(username: str, role: str) -> str:
@@ -99,3 +100,16 @@ def get_current_organizer(
     if not organizer.is_active:
         raise HTTPException(status_code=401, detail="Organizer account is deactivated.")
     return organizer
+
+
+def get_current_doctor(
+    doctor_access_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+) -> Doctor:
+    user = _resolve_user(doctor_access_token, ROLE_DOCTOR, db)
+    doctor = db.query(Doctor).filter(Doctor.username == user["username"]).first()
+    if not doctor:
+        raise HTTPException(status_code=401, detail="Doctor not found.")
+    if not doctor.is_active:
+        raise HTTPException(status_code=401, detail="Doctor account is deactivated.")
+    return doctor

@@ -65,6 +65,12 @@ class Study(Base):
     treatment_arms: Mapped[list["TreatmentArm"]] = relationship(
         "TreatmentArm", back_populates="study", cascade="all, delete-orphan"
     )
+    invitations: Mapped[list["StudyInvitation"]] = relationship(
+        "StudyInvitation", back_populates="study", cascade="all, delete-orphan"
+    )
+    doctors: Mapped[list["StudyDoctor"]] = relationship(
+        "StudyDoctor", back_populates="study", cascade="all, delete-orphan"
+    )
 
 
 class RevokedToken(Base):
@@ -90,5 +96,69 @@ class TreatmentArm(Base):
     )
 
     study: Mapped["Study"] = relationship("Study", back_populates="treatment_arms")
+
+
+class Doctor(Base):
+    __tablename__ = "doctor"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    username: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    studies: Mapped[list["StudyDoctor"]] = relationship(
+        "StudyDoctor", back_populates="doctor", cascade="all, delete-orphan"
+    )
+
+
+class StudyInvitation(Base):
+    __tablename__ = "study_invitations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    study_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("studies.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    invited_by_organizer_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("organizer.id"), nullable=False
+    )
+    doctor_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("doctor.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    study: Mapped["Study"] = relationship("Study", back_populates="invitations")
+
+
+class StudyDoctor(Base):
+    __tablename__ = "study_doctors"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    study_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("studies.id", ondelete="CASCADE"), nullable=False
+    )
+    doctor_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("doctor.id", ondelete="CASCADE"), nullable=False
+    )
+    joined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    study: Mapped["Study"] = relationship("Study", back_populates="doctors")
+    doctor: Mapped["Doctor"] = relationship("Doctor", back_populates="studies")
 
 

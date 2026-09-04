@@ -36,6 +36,19 @@ CSRF_COOKIE_NAME = "csrf_token"
 CSRF_HEADER_NAME = "X-CSRF-Token"
 SETUP_TOKEN_HEADER = "X-Setup-Token"
 
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", "")
+SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
+
+
+def email_is_configured() -> bool:
+    return bool(SMTP_HOST and SMTP_FROM)
+
 if IS_PRODUCTION:
     if not SECRET_KEY or SECRET_KEY == DEFAULT_SECRET_KEY:
         raise RuntimeError("SECRET_KEY must be set to a strong value in production.")

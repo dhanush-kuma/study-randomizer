@@ -10,7 +10,7 @@ from .config import CORS_ORIGINS, IS_PRODUCTION
 from .core.csrf import CSRFMiddleware
 from .core.rate_limit import limiter
 from .core.security_headers import SecurityHeadersMiddleware
-from .routers import setup, admin, organizers, organizer
+from .routers import setup, admin, organizers, organizer, doctor
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,3 +38,4 @@ app.include_router(setup.router)
 app.include_router(admin.router)
 app.include_router(organizers.router)
 app.include_router(organizer.router)
+app.include_router(doctor.router)

@@ -191,3 +191,75 @@ class StudyOut(BaseModel):
     treatment_arms: list[TreatmentArmOut] = []
 
     model_config = {"from_attributes": True}
+
+
+class InviteDoctorRequest(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def email_normalized(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not v or "@" not in v:
+            raise ValueError("A valid email address is required")
+        return v
+
+
+class InvitationOut(BaseModel):
+    id: int
+    study_id: int
+    email: str
+    full_name: Optional[str] = None
+    status: str
+    created_at: datetime
+    expires_at: datetime
+    accepted_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class InvitationPreview(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    study_title: str
+    protocol_code: str
+    expires_at: datetime
+    account_exists: bool
+
+
+class DoctorSignupRequest(BaseModel):
+    token: str
+    username: str
+    password: str
+    full_name: Optional[str] = None
+
+    @field_validator("username")
+    @classmethod
+    def username_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Username cannot be empty")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return validate_new_password(v)
+
+
+class DoctorInfo(BaseModel):
+    username: str
+    email: str
+    full_name: Optional[str] = None
+
+
+class DoctorStudyOut(BaseModel):
+    id: int
+    title: str
+    protocol_code: str
+    status: str
+    blinding_type: str
+    joined_at: datetime
+
+    model_config = {"from_attributes": True}

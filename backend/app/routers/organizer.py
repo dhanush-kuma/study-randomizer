@@ -4,6 +4,13 @@ from sqlalchemy.orm import Session
 
 from ..config import clear_auth_cookie, clear_csrf_cookie, set_auth_cookie, set_csrf_cookie
 from ..core.audit import audit
+from ..config import email_is_configured
+from ..core.email import send_study_invitation
+from ..core.invitations import (
+    generate_invitation_token,
+    get_study_for_organizer,
+    invitation_expires_at,
+)
 from ..core.rate_limit import limiter
 from ..core.security import (
     ROLE_ORGANIZER,
@@ -12,8 +19,10 @@ from ..core.security import (
     revoke_token,
 )
 from ..database import get_db
-from ..models import Organizer, Study, TreatmentArm
+from ..models import Organizer, Study, StudyInvitation, TreatmentArm
 from ..schemas import (
+    InvitationOut,
+    InviteDoctorRequest,
     LoginRequest,
     LoginResponse,
     MessageResponse,
@@ -150,3 +159,93 @@ def list_studies(
         .order_by(Study.created_at.desc())
         .all()
     )
+
+
+@router.get("/studies/{study_id}", response_model=StudyOut)
+def get_study(
+    study_id: int,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    return get_study_for_organizer(study_id, current_organizer.id, db)
+
+
+@router.get("/studies/{study_id}/invitations", response_model=list[InvitationOut])
+def list_invitations(
+    study_id: int,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    get_study_for_organizer(study_id, current_organizer.id, db)
+    return (
+        db.query(StudyInvitation)
+        .filter(StudyInvitation.study_id == study_id)
+        .order_by(StudyInvitation.created_at.desc())
+        .all()
+    )
+
+
+@router.post("/studies/{study_id}/invitations", response_model=InvitationOut, status_code=201)
+@limiter.limit("10/hour")
+def invite_doctor(
+    request: Request,
+    study_id: int,
+    payload: InviteDoctorRequest,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    study = get_study_for_organizer(study_id, current_organizer.id, db)
+
+    pending = (
+        db.query(StudyInvitation)
+        .filter(
+            StudyInvitation.study_id == study_id,
+            StudyInvitation.email == payload.email,
+            StudyInvitation.status == "pending",
+        )
+        .first()
+    )
+
+    if pending:
+        pending.token = generate_invitation_token()
+        pending.expires_at = invitation_expires_at()
+        pending.full_name = payload.full_name.strip() if payload.full_name else pending.full_name
+        invitation = pending
+    else:
+        invitation = StudyInvitation(
+            study_id=study_id,
+            email=payload.email,
+            full_name=payload.full_name.strip() if payload.full_name else None,
+            token=generate_invitation_token(),
+            status="pending",
+            invited_by_organizer_id=current_organizer.id,
+            expires_at=invitation_expires_at(),
+        )
+        db.add(invitation)
+
+    db.flush()
+    db.refresh(invitation)
+
+    try:
+        send_study_invitation(
+            to_email=invitation.email,
+            doctor_name=invitation.full_name,
+            study_title=study.title,
+            protocol_code=study.protocol_code,
+            invitation_token=invitation.token,
+        )
+    except RuntimeError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    db.commit()
+    db.refresh(invitation)
+    audit(
+        "invitation.sent",
+        study_id=study_id,
+        email=invitation.email,
+        organizer=current_organizer.username,
+        ip=request.client.host if request.client else None,
+        email_configured=email_is_configured(),
+    )
+    return invitation
