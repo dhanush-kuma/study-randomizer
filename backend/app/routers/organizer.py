@@ -2,6 +2,7 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
+from ..config import clear_auth_cookie, set_auth_cookie
 from ..database import get_db
 from ..models import Organizer, Study, TreatmentArm
 from ..schemas import (
@@ -45,20 +46,14 @@ def login(
         raise HTTPException(status_code=401, detail="Organizer account is deactivated.")
 
     token = create_access_token(organizer.username)
-    response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=COOKIE_MAX_AGE,
-    )
+    set_auth_cookie(response, COOKIE_NAME, token, COOKIE_MAX_AGE)
     return MessageResponse(message="Login successful.")
 
 
 @router.post("/logout", response_model=MessageResponse)
 def logout(response: Response):
     """Clear the organizer JWT cookie."""
-    response.delete_cookie(key=COOKIE_NAME, samesite="lax")
+    clear_auth_cookie(response, COOKIE_NAME)
     return MessageResponse(message="Logged out successfully.")
 
 

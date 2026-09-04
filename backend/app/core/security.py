@@ -4,12 +4,10 @@ from jose import JWTError, jwt
 from fastapi import Cookie, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from ..config import SECRET_KEY
 from ..database import get_db
 from ..models import Admin, Organizer
 
-# ── Config ─────────────────────────────────────────────────────────────────
-# TODO: move to env var before deploying
-SECRET_KEY = "change-this-secret-key-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 
