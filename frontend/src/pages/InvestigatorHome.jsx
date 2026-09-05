@@ -58,8 +58,8 @@ function InvestigatorHome() {
             <div className="status-card" style={{ marginBottom: '28px' }}>
               <div className="label">Session Status</div>
               <p className="message">
-                Logged in as <strong>{investigator.name || investigator.username}</strong>{' '}
-                · Study ID: <strong>{investigator.study_id}</strong>
+                Logged in as <strong>{investigator.name || investigator.username}</strong>
+                {' '}· Trial ID: <strong>{investigator.trial_id}</strong>
                 {' '}· Username: <code>{investigator.username}</code>
               </p>
             </div>

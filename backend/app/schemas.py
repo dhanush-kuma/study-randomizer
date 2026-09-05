@@ -276,6 +276,7 @@ class InvestigatorInfo(BaseModel):
     email: str
     name: Optional[str] = None
     study_id: int
+    trial_id: str
     status: str
 
 

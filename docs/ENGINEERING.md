@@ -6,15 +6,15 @@ This document is the starting point for engineers who are new to the codebase. I
 
 ## 1. What is this system?
 
-**Study Randomizer** is a web application for managing clinical study metadata and inviting doctors to participate in studies. It is **not** a full randomization engine yet — it handles user management, study configuration, and doctor invitations.
+**Study Randomizer** is a web application for managing clinical study metadata, configuring treatment arms, adding investigators, and running study randomization workflows.
 
 ### User roles
 
 | Role | Purpose | How they get access |
 |------|---------|---------------------|
 | **Admin** | Bootstrap the system; create/disable organizer accounts | First-run setup (`POST /setup`) with a setup token |
-| **Organizer** | Create studies; invite doctors by email | Created by an admin |
-| **Doctor** | View studies they are assigned to | Email invitation → signup or login |
+| **Organizer** | Create and manage studies; add investigators; configure arms and randomization | Created by an admin |
+| **Investigator** | Access a single assigned study (future: contribute trial data) | Organizer adds them — credentials emailed automatically |
 
 ### High-level flows
 
@@ -26,13 +26,14 @@ Admin
   └─ Logs in → creates organizer accounts → enables/disables them
 
 Organizer
-  └─ Logs in → creates studies (metadata + treatment arms)
-            → invites doctors by email
+  └─ Logs in → creates studies
+            → configures treatment arms & randomization
+            → adds investigators (email + optional name)
 
-Doctor
-  └─ Receives email with signup link
-  └─ New user: signup → auto-joined to study
-  └─ Existing user: login → accept invitation
+Investigator
+  └─ Receives email with Trial ID, username, and temp password
+  └─ Logs in at /investigator/login (no signup flow)
+  └─ Can change password after login
 ```
 
 ---
@@ -53,42 +54,35 @@ Doctor
 
 ```
 .
-├── backend/                    # FastAPI API server
+├── backend/
 │   ├── app/
 │   │   ├── main.py             # App entry, middleware, router registration
 │   │   ├── config.py           # Environment variables & cookie helpers
 │   │   ├── database.py         # SQLAlchemy engine & get_db dependency
-│   │   ├── models.py           # SQLAlchemy ORM models (database tables)
+│   │   ├── models.py           # SQLAlchemy ORM models
 │   │   ├── schemas.py          # Pydantic request/response models
-│   │   ├── core/               # Cross-cutting concerns
+│   │   ├── core/
 │   │   │   ├── security.py     # JWT, auth dependencies, token revocation
 │   │   │   ├── csrf.py         # CSRF middleware
 │   │   │   ├── rate_limit.py   # slowapi rate limiter
 │   │   │   ├── audit.py        # Structured audit logging
-│   │   │   ├── email.py        # SMTP send + invitation email template
-│   │   │   ├── invitations.py  # Invitation token & acceptance logic
+│   │   │   ├── email.py        # SMTP + investigator credential emails
+│   │   │   ├── investigators.py # Username/password generation
 │   │   │   └── security_headers.py
-│   │   └── routers/            # HTTP route handlers (one file per area)
+│   │   └── routers/
 │   │       ├── setup.py        # Health check + first-run admin setup
 │   │       ├── admin.py        # Admin login/logout/session
 │   │       ├── organizers.py   # Admin: CRUD organizers
-│   │       ├── organizer.py    # Organizer auth + studies + invitations
-│   │       └── doctor.py       # Doctor auth + signup + studies
-│   ├── migrations/             # Alembic database migrations
-│   ├── alembic.ini
-│   ├── requirements.txt
-│   └── .env.example            # Copy to .env for local config
+│   │       ├── organizer.py    # Organizer auth, studies, investigators
+│   │       └── investigator.py # Investigator login, me, change-password
+│   ├── migrations/
+│   └── .env.example
 │
-├── frontend/                   # React SPA
-│   ├── src/
-│   │   ├── main.jsx            # React DOM entry
-│   │   ├── App.jsx             # Route definitions
-│   │   ├── api.js              # apiFetch wrapper (cookies, CSRF, JSON)
-│   │   ├── config.js           # VITE_API_URL
-│   │   ├── components/         # Shared UI (Header, PasswordInput)
-│   │   └── pages/              # One file per screen/route
-│   ├── .env.example
-│   └── package.json
+├── frontend/
+│   └── src/
+│       ├── App.jsx             # Route definitions
+│       ├── api.js              # apiFetch wrapper (cookies, CSRF, JSON)
+│       └── pages/              # One file per screen
 │
 └── docs/
     └── ENGINEERING.md          # This file
@@ -104,41 +98,25 @@ Doctor
 - Node.js 18+
 - PostgreSQL running locally
 
-### Database
-
-Create a database (example name: `study-randomizer`):
-
-```sql
-CREATE DATABASE "study-randomizer";
-```
-
 ### Backend
 
 ```bash
 cd backend
 python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS/Linux
-source .venv/bin/activate
-
+.venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-cp .env.example .env          # edit DATABASE_URL and other values
-alembic upgrade head          # apply all migrations
+cp .env.example .env
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-API: `http://localhost:8000`  
-Interactive docs (dev only): `http://localhost:8000/docs`
+API: `http://localhost:8000` · Docs: `http://localhost:8000/docs` (dev only)
 
 ### Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env          # optional; defaults to localhost:8000
 npm run dev
 ```
 
@@ -151,309 +129,189 @@ App: `http://localhost:5173`
 3. Enter setup token (from `SETUP_TOKEN` in `.env`, or leave blank in dev if unset)
 4. Create admin username/password (min 12 characters)
 
-Then log in at `/admin/login` and create organizer accounts.
-
 ---
 
 ## 5. Configuration
 
-All backend config is loaded from environment variables in `backend/app/config.py`. Copy `backend/.env.example` to `backend/.env`.
+Copy `backend/.env.example` → `backend/.env`.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ENVIRONMENT` | No | `development` (default) or `production` |
+| `ENVIRONMENT` | No | `development` or `production` |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `SECRET_KEY` | Prod | JWT signing key; must be strong in production |
+| `SECRET_KEY` | Prod | JWT signing key |
 | `SETUP_TOKEN` | Prod | Protects first-run admin setup |
-| `CORS_ORIGINS` | No | Comma-separated frontend URLs (default `http://localhost:5173`) |
-| `FRONTEND_URL` | Yes* | Base URL for links in invitation emails |
-| `SMTP_HOST` | No** | Mail server hostname |
-| `SMTP_PORT` | No | Default `587` |
-| `SMTP_USER` / `SMTP_PASSWORD` | No | SMTP credentials |
-| `SMTP_FROM` | No** | Sender address shown to recipients |
-| `SMTP_USE_TLS` | No | Default `true` |
-| `COOKIE_SECURE` | Prod | Set `true` when using HTTPS |
-| `COOKIE_SAMESITE` | Prod | Use `none` if frontend and API are on different domains |
+| `CORS_ORIGINS` | No | Comma-separated frontend URLs |
+| `FRONTEND_URL` | Yes* | Base URL in investigator credential emails |
+| `SMTP_*` | Prod** | Email delivery for investigator credentials |
 
-\* Required for invitation emails to contain correct links.  
-\*\* In development, if SMTP is not configured, invitation links are logged to the console instead of emailed. In production, SMTP is required for invitations.
+\* Required for correct login links in emails.  
+\*\* In development without SMTP, credentials are logged to the backend console. In production, SMTP is required.
 
-Frontend config: `frontend/.env` → `VITE_API_URL` (default `http://localhost:8000`).
+Frontend: `VITE_API_URL` in `frontend/.env` (default `http://localhost:8000`).
 
 ---
 
 ## 6. Database schema
 
-Models live in `backend/app/models.py`. Migrations are in `backend/migrations/versions/`.
-
 ### Entity relationship (simplified)
 
 ```
-Admin                    (standalone)
+Admin                         (standalone)
 
 Organizer ──< Study ──< TreatmentArm
                 │
-                ├──< StudyInvitation
-                └──< StudyDoctor >── Doctor
+                ├──< Investigator
+                └──< RandomizationRecord
 
-RevokedToken             (JWT blacklist on logout)
+RevokedToken                  (JWT blacklist on logout)
 ```
 
-### Tables
+### Key tables
 
 | Table | Purpose |
 |-------|---------|
 | `admin` | System administrators |
-| `organizer` | Study managers (`is_active` flag) |
-| `studies` | Trial metadata (title, protocol, blinding, randomization settings) |
-| `treatment_arms` | Arms per study (name, short code, allocation ratio) |
-| `doctor` | Doctors (`email`, `username`, optional `full_name`) |
-| `study_invitations` | Pending/accepted email invites (token, expiry) |
-| `study_doctors` | Many-to-many: which doctors belong to which studies |
+| `organizer` | Study managers |
+| `studies` | Trial metadata (protocol code, blinding, randomization settings) |
+| `treatment_arms` | Arms per study |
+| `investigator` | Per-study accounts (email, generated username, status) |
+| `randomization_records` | Randomization output rows |
 | `revoked_tokens` | Invalidated JWT IDs after logout |
+
+### Investigator model
+
+Each investigator belongs to **one study**:
+
+| Column | Description |
+|--------|-------------|
+| `username` | Sequential per study: `000001`, `000002`, … |
+| `status` | `inactive` → `active` (first login) → `revoked` |
+| Login key | `(trial_id, username, password)` where `trial_id` = study `protocol_code` |
 
 ### Migrations
 
-Run from `backend/`:
-
 ```bash
-alembic upgrade head      # apply pending migrations
-alembic revision -m "description" --autogenerate   # create new migration (after model changes)
+alembic upgrade head
 ```
 
-Migration chain (oldest → newest):
-
-1. `937fc07f8529` — admin  
-2. `53a123b51bd3` — organizer  
-3. `8f1e2d3c4b5a` — studies  
-4. `c7d8e9f0a1b2` — treatment_arms  
-5. `d4e5f6a7b8c9` — revoked_tokens  
-6. `e5f6a7b8c9d0` — doctor, study_invitations, study_doctors  
+Latest migration: `b2c3d4e5f6a7` — replaces old doctor/invitation tables with `investigator`.
 
 ---
 
 ## 7. API reference
 
-Base URL: `http://localhost:8000` (dev).
-
-### Public / setup
+### Organizer — investigators
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/` | Health check |
-| GET | `/setup/status` | Check if admin exists (requires `X-Setup-Token` header) |
-| POST | `/setup` | Create first admin (requires `setup_token` in body) |
+| GET | `/organizer/studies/{id}/investigators` | List investigators |
+| POST | `/organizer/studies/{id}/investigators` | Create investigator + email credentials |
+| PATCH | `/organizer/studies/{id}/investigators/{id}/revoke` | Revoke access |
 
-### Admin (`/admin`)
+### Investigator
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/admin/login` | — | Login; returns CSRF token |
-| POST | `/admin/logout` | Admin | Logout; revokes JWT |
-| GET | `/admin/me` | Admin | Current admin info |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/investigator/login` | Login with `{ trial_id, username, password }` |
+| POST | `/investigator/logout` | Logout |
+| GET | `/investigator/me` | Current investigator info |
+| POST | `/investigator/change-password` | Change password |
 
-### Admin — organizers (`/admin/organizers`)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/admin/organizers/` | Admin | Create organizer |
-| GET | `/admin/organizers/` | Admin | List organizers |
-| PATCH | `/admin/organizers/{id}/status` | Admin | Toggle active/inactive |
-
-### Organizer (`/organizer`)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/organizer/login` | — | Login |
-| POST | `/organizer/logout` | Organizer | Logout |
-| GET | `/organizer/me` | Organizer | Current organizer |
-| POST | `/organizer/studies/` | Organizer | Create study + treatment arms |
-| GET | `/organizer/studies/` | Organizer | List own studies |
-| GET | `/organizer/studies/{id}` | Organizer | Get one study |
-| GET | `/organizer/studies/{id}/invitations` | Organizer | List invitations |
-| POST | `/organizer/studies/{id}/invitations` | Organizer | Send doctor invitation email |
-
-### Doctor (`/doctor`)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/doctor/invitations/{token}` | — | Preview invitation |
-| POST | `/doctor/signup` | — | Create account + join study |
-| POST | `/doctor/invitations/{token}/accept` | Doctor | Join study (existing account) |
-| POST | `/doctor/login` | — | Login |
-| POST | `/doctor/logout` | Doctor | Logout |
-| GET | `/doctor/me` | Doctor | Current doctor |
-| GET | `/doctor/studies/` | Doctor | List assigned studies |
-
-Request/response shapes are defined in `backend/app/schemas.py`.
+See `/docs` in development for the full API including admin, organizer study, and randomization endpoints.
 
 ---
 
 ## 8. Authentication & security
 
-Implementation: `backend/app/core/security.py`, `backend/app/config.py`, `backend/app/core/csrf.py`.
+### Cookies (one per role)
 
-### How auth works
+| Role | Cookie name |
+|------|-------------|
+| Admin | `access_token` |
+| Organizer | `organizer_access_token` |
+| Investigator | `investigator_access_token` |
 
-1. User submits username/password to a login endpoint.
-2. Server verifies with bcrypt, creates a JWT containing `sub` (username), `role`, `jti`, and `exp`.
-3. JWT is stored in an **HttpOnly cookie** (separate cookie per role):
-   - Admin → `access_token`
-   - Organizer → `organizer_access_token`
-   - Doctor → `doctor_access_token`
-4. A **CSRF token** is also set (cookie + returned in login response body).
-5. Protected routes use FastAPI dependencies (`get_current_admin`, etc.) that read the cookie, verify role, and check revocation.
+Investigator JWT `sub` stores the **investigator database id** (not username), because usernames are only unique within a study.
 
 ### CSRF
 
-Mutating requests (POST/PATCH/DELETE) require the `X-CSRF-Token` header to match the `csrf_token` cookie. Exempt routes: login, signup, setup, invitation preview.
+Mutating requests require `X-CSRF-Token` header matching the `csrf_token` cookie.  
+**Exempt:** `/admin/login`, `/organizer/login`, `/investigator/login`, `/setup`, `/setup`.
 
-The frontend stores the CSRF token in `sessionStorage` after login (`frontend/src/api.js`) because cross-origin setups cannot read API cookies from JavaScript.
-
-### Other security features
-
-| Feature | Where |
-|---------|-------|
-| Rate limiting | `core/rate_limit.py` — login/setup/invite endpoints |
-| Token revocation on logout | `revoked_tokens` table |
-| Audit logging | `core/audit.py` — login, setup, study create, invitations |
-| Security headers | `core/security_headers.py` |
-| Password policy | min 12 chars for new passwords (`schemas.py`) |
-| Setup token | Protects first admin creation in production |
+The frontend stores CSRF in `sessionStorage` after login (`frontend/src/api.js`).
 
 ---
 
-## 9. Frontend architecture
+## 9. Frontend routes
 
-### Routing
+| Path | Page | Role |
+|------|------|------|
+| `/organizer/studies/:studyId/home` | `StudyHome.jsx` | Organizer — study hub |
+| `/organizer/studies/:studyId/investigators` | `StudyInvestigators.jsx` | Organizer — add/revoke investigators |
+| `/organizer/studies/:studyId/arms` | `StudyArms.jsx` | Organizer — treatment arms |
+| `/organizer/studies/:studyId/randomization` | `StudyRandomization.jsx` | Organizer — randomization |
+| `/investigator/login` | `InvestigatorLogin.jsx` | Investigator — Trial ID + username + password |
+| `/investigator/home` | `InvestigatorHome.jsx` | Investigator dashboard |
+| `/investigator/change-password` | `InvestigatorChangePassword.jsx` | Investigator |
 
-All routes are in `frontend/src/App.jsx`:
+Always use `apiFetch` from `frontend/src/api.js` for API calls.
 
-| Path | Page file | Role |
-|------|-----------|------|
-| `/` | `Home.jsx` | Public — health + admin setup |
-| `/admin/login` | `AdminLogin.jsx` | Admin |
-| `/admin/home` | `AdminHome.jsx` | Admin — manage organizers |
-| `/organizer/login` | `OrganizerLogin.jsx` | Organizer |
-| `/organizer/home` | `OrganizerHome.jsx` | Organizer — study list |
-| `/organizer/studies/new` | `CreateStudy.jsx` | Organizer — create study |
-| `/organizer/studies/:studyId/invites` | `StudyInvites.jsx` | Organizer — invite doctors |
-| `/doctor/signup?token=...` | `DoctorSignup.jsx` | Public — invitation signup |
-| `/doctor/login` | `DoctorLogin.jsx` | Doctor |
-| `/doctor/home` | `DoctorHome.jsx` | Doctor — assigned studies |
+---
 
-`*Guard.jsx` pages (`AdminGuard`, `OrganizerGuard`, `DoctorGuard`) check session and redirect to login or home.
+## 10. Investigator onboarding (email flow)
 
-### API calls
+Implementation: `core/investigators.py`, `core/email.py`, `routers/organizer.py`.
 
-Always use `apiFetch` from `frontend/src/api.js` instead of raw `fetch`:
-
-```javascript
-import { apiFetch, setCsrfToken, clearCsrfToken } from '../api'
-
-// GET
-const res = await apiFetch('/organizer/studies/')
-
-// POST with JSON body
-const res = await apiFetch('/organizer/studies/', {
-  method: 'POST',
-  json: { title: '...', protocol_code: '...', treatment_arms: [] },
-})
+```
+Organizer submits email + optional name
+        ↓
+POST /organizer/studies/{id}/investigators
+        ↓
+Backend:
+  1. generate_username()  → "000001", "000002", …
+  2. generate_temp_password()
+  3. INSERT investigator (status=inactive)
+  4. send_investigator_credentials() via SMTP
+     (dev without SMTP: credentials logged to console)
+        ↓
+Investigator logs in with Trial ID + username + password
+        ↓
+status → active on first login
 ```
 
-Use `credentials: 'include'` behavior is built in. After login, call `setCsrfToken(data.csrf_token)`. On logout, call `clearCsrfToken()`.
+No signup page. No invitation tokens. No join tables.
 
----
-
-## 10. Email invitations
-
-Implementation: `backend/app/core/email.py`, `backend/app/core/invitations.py`, `backend/app/routers/organizer.py` (send), `backend/app/routers/doctor.py` (accept/signup).
-
-### Flow
-
-1. Organizer POSTs `{ email, full_name? }` to `/organizer/studies/{id}/invitations`.
-2. Server creates a `study_invitations` row with a secure token (7-day expiry).
-3. `send_study_invitation()` sends an SMTP email with link:  
-   `{FRONTEND_URL}/doctor/signup?token={token}`
-4. Doctor opens link → frontend calls `GET /doctor/invitations/{token}`.
-5. New doctor → `POST /doctor/signup` creates account and joins study.  
-   Existing doctor → login → `POST /doctor/invitations/{token}/accept`.
-
-Resending to the same email while status is `pending` refreshes the token and expiry.
+Organizer can **revoke** an investigator → subsequent logins return 401.
 
 ---
 
 ## 11. What is NOT implemented yet
 
-These are intentional gaps or future work:
-
-- **Randomization execution** — studies store method/settings but no schedule is generated
-- **`random_seed`** — column exists but is always `null`; not exposed to users yet
-- **Study update/delete** — `StudyUpdate` schema exists; no PATCH/DELETE routes
-- **Study detail page for organizers** — only list + create + invites
-- **Doctor actions within a study** — doctors can only see assigned studies, not enroll patients
-- **Participant/patient role**
-- **MFA**
-- **Email templates** — plain-text only
-
-When adding features, follow existing patterns: model → migration → schema → router → page.
+- Investigator actions within a study (beyond login / change password)
+- Participant/patient enrollment
+- MFA
+- HTML email templates
 
 ---
 
-## 12. Adding a new feature (checklist)
-
-Example: “Organizer can edit a study.”
-
-1. **Schema** — add/update Pydantic models in `schemas.py`
-2. **Router** — add endpoint in `routers/organizer.py` with `get_current_organizer` dependency
-3. **Authorization** — scope queries to `current_organizer.id` (see `get_study_for_organizer` in `core/invitations.py`)
-4. **Audit** — call `audit("event.name", ...)` for important actions
-5. **Frontend** — new page or form; use `apiFetch`
-6. **Migration** — only if the database schema changes: `alembic revision --autogenerate -m "..."`
-
----
-
-## 13. Running in production (summary)
-
-1. Set `ENVIRONMENT=production`
-2. Set strong `SECRET_KEY` and `SETUP_TOKEN`
-3. Configure PostgreSQL `DATABASE_URL`
-4. Set `CORS_ORIGINS` and `FRONTEND_URL` to your real domains
-5. Configure SMTP for invitation emails
-6. If frontend and API are on different domains: `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`
-7. Run `alembic upgrade head` before starting the server
-8. Build frontend: `npm run build` → serve `dist/` via static host or reverse proxy
-9. Run backend with a production ASGI server (e.g. `uvicorn app.main:app --host 0.0.0.0 --port 8000`)
-
----
-
-## 14. Quick file lookup
+## 12. Quick file lookup
 
 | I need to… | Look in… |
 |------------|----------|
-| Add an API endpoint | `backend/app/routers/` |
-| Change DB tables | `backend/app/models.py` + new migration |
-| Change request/response validation | `backend/app/schemas.py` |
-| Change auth behavior | `backend/app/core/security.py` |
-| Change env vars | `backend/app/config.py`, `backend/.env.example` |
-| Change email content | `backend/app/core/email.py` |
-| Add a frontend page | `frontend/src/pages/` + route in `App.jsx` |
-| Change how API calls work | `frontend/src/api.js` |
-| Change global styles | `frontend/src/index.css`, `App.css` |
+| Add investigator logic | `routers/organizer.py`, `core/investigators.py` |
+| Change investigator auth | `routers/investigator.py`, `core/security.py` |
+| Change credential email | `core/email.py` |
+| Change DB schema | `models.py` + Alembic migration |
+| Add frontend page | `frontend/src/pages/` + `App.jsx` |
 
 ---
 
-## 15. Troubleshooting
+## 13. Troubleshooting
 
 | Problem | Likely cause |
 |---------|----------------|
-| 401 on protected routes | Not logged in, wrong role cookie, or expired/revoked token |
-| 403 CSRF validation failed | Missing CSRF header; log in again to refresh token |
-| Invitation email not received | SMTP not configured; check backend logs (dev logs link instead) |
-| CORS errors | `CORS_ORIGINS` does not include frontend URL |
-| `SECRET_KEY must be set` on startup | Production mode without a real secret in `.env` |
-| DB errors on startup | Run `alembic upgrade head`; check `DATABASE_URL` |
-
----
-
-For questions about deployment providers or security hardening history, see git commit messages from the `feat: harden auth` and `feat: add doctor email invitations` changes.
+| 403 CSRF on investigator login | `/investigator/login` must be CSRF-exempt (see `core/csrf.py`) |
+| Investigator login fails | Wrong trial ID (must match study `protocol_code`), wrong username/password, or revoked |
+| No email received | SMTP not configured — check backend logs for credentials (dev mode) |
+| 401 on protected routes | Expired/revoked token — log in again |

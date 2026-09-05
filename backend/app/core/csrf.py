@@ -8,15 +8,10 @@ CSRF_EXEMPT_PATHS = {
     "/",
     "/admin/login",
     "/organizer/login",
-    "/doctor/login",
-    "/doctor/signup",
+    "/investigator/login",
     "/setup",
     "/setup/status",
 }
-
-CSRF_EXEMPT_PREFIXES = (
-    "/doctor/invitations/",
-)
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -25,9 +20,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if request.url.path in CSRF_EXEMPT_PATHS:
-            return await call_next(request)
-
-        if any(request.url.path.startswith(prefix) for prefix in CSRF_EXEMPT_PREFIXES):
             return await call_next(request)
 
         cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
