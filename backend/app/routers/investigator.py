@@ -112,10 +112,12 @@ def logout(
 
 @router.get("/me", response_model=InvestigatorInfo)
 def get_me(
+    response: Response,
     current_investigator: Investigator = Depends(get_current_investigator),
     db: Session = Depends(get_db),
 ):
     study = db.query(Study).filter(Study.id == current_investigator.study_id).first()
+    csrf_token = set_csrf_cookie(response, COOKIE_MAX_AGE)
     return InvestigatorInfo(
         id=current_investigator.id,
         username=current_investigator.username,
@@ -124,6 +126,7 @@ def get_me(
         study_id=current_investigator.study_id,
         trial_id=study.protocol_code if study else "",
         status=current_investigator.status,
+        csrf_token=csrf_token,
     )
 
 

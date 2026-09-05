@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch, clearCsrfToken } from '../api'
+import { apiFetch, clearCsrfToken, storeCsrfFromResponse } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
@@ -26,7 +26,7 @@ function AdminHome() {
         if (!res.ok) { navigate('/admin/login', { replace: true }); return null }
         return res.json()
       })
-      .then((data) => { if (data) { setAdmin(data); loadOrganizers() } })
+      .then((data) => { if (data) { storeCsrfFromResponse(data); setAdmin(data); loadOrganizers() } })
       .catch(() => navigate('/admin/login', { replace: true }))
   }, [navigate])
 

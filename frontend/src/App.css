@@ -266,6 +266,45 @@
   cursor: not-allowed;
 }
 
+.action-confirm {
+  min-width: 220px;
+}
+
+.action-confirm__text {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #444;
+}
+
+.action-confirm__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-danger {
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  color: #ffffff;
+  background: #b42318;
+  border: 1px solid #b42318;
+  border-radius: 3px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #912018;
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ── Section header ───────────────────────────────────────── */
 .section-header {
   display: flex;

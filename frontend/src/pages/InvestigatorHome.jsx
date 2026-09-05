@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { apiFetch, clearCsrfToken } from '../api'
+import { apiFetch, clearCsrfToken, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 function InvestigatorHome() {
@@ -18,7 +18,10 @@ function InvestigatorHome() {
         return res.json()
       })
       .then((data) => {
-        if (data) setInvestigator(data)
+        if (data) {
+          storeCsrfFromResponse(data)
+          setInvestigator(data)
+        }
       })
       .catch(() => navigate('/investigator/login', { replace: true }))
   }, [navigate])

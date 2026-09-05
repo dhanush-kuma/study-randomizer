@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch, setCsrfToken } from '../api'
+import { apiFetch, storeCsrfFromResponse } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
@@ -14,8 +14,13 @@ function InvestigatorChangePassword() {
 
   // Verify session on mount
   useEffect(() => {
-    apiFetch('/investigator/me').then((res) => {
-      if (!res.ok) navigate('/investigator/login', { replace: true })
+    apiFetch('/investigator/me').then(async (res) => {
+      if (!res.ok) {
+        navigate('/investigator/login', { replace: true })
+        return
+      }
+      const data = await res.json()
+      storeCsrfFromResponse(data)
     })
   }, [navigate])
 

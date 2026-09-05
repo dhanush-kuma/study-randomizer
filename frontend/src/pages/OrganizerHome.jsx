@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { apiFetch, clearCsrfToken } from '../api'
+import { apiFetch, clearCsrfToken, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 function OrganizerHome() {
@@ -30,6 +30,7 @@ function OrganizerHome() {
       })
       .then((data) => {
         if (data) {
+          storeCsrfFromResponse(data)
           setOrganizer(data)
           loadStudies()
         }

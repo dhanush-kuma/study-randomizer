@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { apiFetch } from '../api'
+import { apiFetch, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 const STATUS_LABELS = {
@@ -19,7 +19,8 @@ function StudyInvestigators() {
   const [error, setError] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [revoking, setRevoking] = useState(null) // id of investigator being revoked
+  const [actionLoading, setActionLoading] = useState(null) // id of investigator being updated
+  const [pendingAction, setPendingAction] = useState(null) // { type, id, label }
 
   function loadInvestigators() {
     apiFetch(`/organizer/studies/${studyId}/investigators`)
@@ -30,11 +31,13 @@ function StudyInvestigators() {
 
   useEffect(() => {
     apiFetch('/organizer/me')
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
           navigate('/organizer/login', { replace: true })
           return null
         }
+        const me = await res.json()
+        storeCsrfFromResponse(me)
         return Promise.all([
           apiFetch(`/organizer/studies/${studyId}`),
           apiFetch(`/organizer/studies/${studyId}/investigators`),
@@ -89,7 +92,7 @@ function StudyInvestigators() {
   }
 
   async function handleRevoke(investigatorId) {
-    setRevoking(investigatorId)
+    setActionLoading(investigatorId)
     try {
       const res = await apiFetch(
         `/organizer/studies/${studyId}/investigators/${investigatorId}/revoke`,
@@ -100,12 +103,39 @@ function StudyInvestigators() {
         alert(data.detail || 'Failed to revoke access.')
         return
       }
+      setPendingAction(null)
       loadInvestigators()
     } catch {
       alert('Could not connect to backend.')
     } finally {
-      setRevoking(null)
+      setActionLoading(null)
     }
+  }
+
+  async function handleRestore(investigatorId) {
+    setActionLoading(investigatorId)
+    try {
+      const res = await apiFetch(
+        `/organizer/studies/${studyId}/investigators/${investigatorId}/restore`,
+        { method: 'PATCH' }
+      )
+      if (!res.ok) {
+        const data = await res.json()
+        alert(data.detail || 'Failed to restore access.')
+        return
+      }
+      setPendingAction(null)
+      setSuccessMsg('Investigator access restored. They can log in again with their existing credentials.')
+      loadInvestigators()
+    } catch {
+      alert('Could not connect to backend.')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  function investigatorLabel(inv) {
+    return inv.name || inv.username
   }
 
   return (
@@ -206,14 +236,71 @@ function StudyInvestigators() {
                         </td>
                         <td>{new Date(inv.created_at).toLocaleDateString()}</td>
                         <td>
-                          {inv.status !== 'revoked' && (
+                          {pendingAction?.id === inv.id ? (
+                            <div className="action-confirm">
+                              <p className="action-confirm__text">
+                                {pendingAction.type === 'revoke'
+                                  ? `Revoke access for ${pendingAction.label}? They will no longer be able to log in.`
+                                  : `Restore access for ${pendingAction.label}? They can log in again with their existing credentials.`}
+                              </p>
+                              <div className="action-confirm__buttons">
+                                <button
+                                  type="button"
+                                  className={pendingAction.type === 'revoke' ? 'btn-danger' : 'btn-primary'}
+                                  style={{ fontSize: '12px', padding: '4px 10px' }}
+                                  disabled={actionLoading === inv.id}
+                                  onClick={() =>
+                                    pendingAction.type === 'revoke'
+                                      ? handleRevoke(inv.id)
+                                      : handleRestore(inv.id)
+                                  }
+                                >
+                                  {actionLoading === inv.id
+                                    ? 'Saving…'
+                                    : pendingAction.type === 'revoke'
+                                      ? 'Yes, revoke'
+                                      : 'Yes, restore'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  style={{ fontSize: '12px', padding: '4px 10px' }}
+                                  disabled={actionLoading === inv.id}
+                                  onClick={() => setPendingAction(null)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : inv.status === 'revoked' ? (
                             <button
                               className="btn-secondary"
                               style={{ fontSize: '12px', padding: '4px 10px' }}
-                              disabled={revoking === inv.id}
-                              onClick={() => handleRevoke(inv.id)}
+                              disabled={actionLoading === inv.id}
+                              onClick={() =>
+                                setPendingAction({
+                                  type: 'restore',
+                                  id: inv.id,
+                                  label: investigatorLabel(inv),
+                                })
+                              }
                             >
-                              {revoking === inv.id ? 'Revoking…' : 'Revoke'}
+                              Restore access
+                            </button>
+                          ) : (
+                            <button
+                              className="btn-secondary"
+                              style={{ fontSize: '12px', padding: '4px 10px' }}
+                              disabled={actionLoading === inv.id}
+                              onClick={() =>
+                                setPendingAction({
+                                  type: 'revoke',
+                                  id: inv.id,
+                                  label: investigatorLabel(inv),
+                                })
+                              }
+                            >
+                              Revoke
                             </button>
                           )}
                         </td>

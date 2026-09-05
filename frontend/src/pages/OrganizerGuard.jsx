@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { apiFetch } from '../api'
+import { apiFetch, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 /**
@@ -13,7 +13,11 @@ function OrganizerGuard() {
 
   useEffect(() => {
     apiFetch('/organizer/me')
-      .then((res) => {
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json()
+          storeCsrfFromResponse(data)
+        }
         setDestination(res.ok ? '/organizer/home' : '/organizer/login')
       })
       .catch(() => setDestination('/organizer/login'))

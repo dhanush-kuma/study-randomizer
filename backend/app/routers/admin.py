@@ -17,8 +17,12 @@ COOKIE_MAX_AGE = 60 * 60 * 24
 
 
 @router.get("/me", response_model=AdminInfo)
-def get_me(current_admin: Admin = Depends(get_current_admin)):
-    return AdminInfo(username=current_admin.username)
+def get_me(
+    response: Response,
+    current_admin: Admin = Depends(get_current_admin),
+):
+    csrf_token = set_csrf_cookie(response, COOKIE_MAX_AGE)
+    return AdminInfo(username=current_admin.username, csrf_token=csrf_token)
 
 
 @router.post("/login", response_model=LoginResponse)

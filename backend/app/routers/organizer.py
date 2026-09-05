@@ -67,8 +67,12 @@ def _ensure_protocol_code_available(
 
 
 @router.get("/me", response_model=OrganizerInfo)
-def get_me(current_organizer: Organizer = Depends(get_current_organizer)):
-    return OrganizerInfo(username=current_organizer.username)
+def get_me(
+    response: Response,
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    csrf_token = set_csrf_cookie(response, COOKIE_MAX_AGE)
+    return OrganizerInfo(username=current_organizer.username, csrf_token=csrf_token)
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -375,6 +379,41 @@ def revoke_investigator(
     db.refresh(investigator)
     audit(
         "investigator.revoked",
+        investigator_id=investigator.id,
+        study_id=study_id,
+        organizer=current_organizer.username,
+    )
+    return investigator
+
+
+@router.patch(
+    "/studies/{study_id}/investigators/{investigator_id}/restore",
+    response_model=InvestigatorOut,
+)
+def restore_investigator(
+    study_id: int,
+    investigator_id: int,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    """Restore a revoked investigator's access to the study."""
+    _get_study_for_organizer(study_id, current_organizer.id, db)
+    investigator = (
+        db.query(Investigator)
+        .filter(Investigator.id == investigator_id, Investigator.study_id == study_id)
+        .first()
+    )
+    if not investigator:
+        raise HTTPException(status_code=404, detail="Investigator not found.")
+    if investigator.status != "revoked":
+        raise HTTPException(status_code=409, detail="Investigator access is not revoked.")
+
+    # inactive until they log in again; login promotes inactive → active
+    investigator.status = "inactive"
+    db.commit()
+    db.refresh(investigator)
+    audit(
+        "investigator.restored",
         investigator_id=investigator.id,
         study_id=study_id,
         organizer=current_organizer.username,

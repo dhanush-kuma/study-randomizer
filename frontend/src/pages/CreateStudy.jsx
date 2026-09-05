@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { apiFetch } from '../api'
+import { apiFetch, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 function parseApiError(detail) {
@@ -36,7 +36,10 @@ function CreateStudy() {
         return res.json()
       })
       .then((data) => {
-        if (data) setOrganizer(data)
+        if (data) {
+          storeCsrfFromResponse(data)
+          setOrganizer(data)
+        }
       })
       .catch(() => navigate('/organizer/login', { replace: true }))
   }, [navigate])

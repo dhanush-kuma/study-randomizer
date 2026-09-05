@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch } from '../api'
+import { apiFetch, storeCsrfFromResponse } from '../api'
 
 /**
  * Guard for /investigator — redirects to login if no active session,
@@ -11,8 +11,10 @@ function InvestigatorGuard() {
 
   useEffect(() => {
     apiFetch('/investigator/me')
-      .then((res) => {
+      .then(async (res) => {
         if (res.ok) {
+          const data = await res.json()
+          storeCsrfFromResponse(data)
           navigate('/investigator/home', { replace: true })
         } else {
           navigate('/investigator/login', { replace: true })

@@ -92,6 +92,7 @@ class InvestigatorLoginRequest(BaseModel):
         return validate_login_password(v)
 class AdminInfo(BaseModel):
     username: str
+    csrf_token: str
 
 
 class MessageResponse(BaseModel):
@@ -131,6 +132,7 @@ class OrganizerOut(BaseModel):
 
 class OrganizerInfo(BaseModel):
     username: str
+    csrf_token: str
 
 
 class TreatmentArmCreate(BaseModel):
@@ -278,6 +280,7 @@ class InvestigatorInfo(BaseModel):
     study_id: int
     trial_id: str
     status: str
+    csrf_token: str
 
 
 class ChangePasswordRequest(BaseModel):
