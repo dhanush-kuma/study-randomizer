@@ -72,6 +72,9 @@ class Study(Base):
     doctors: Mapped[list["StudyDoctor"]] = relationship(
         "StudyDoctor", back_populates="study", cascade="all, delete-orphan"
     )
+    randomization_records: Mapped[list["RandomizationRecord"]] = relationship(
+        "RandomizationRecord", back_populates="study", cascade="all, delete-orphan"
+    )
 
 
 class RevokedToken(Base):
@@ -163,3 +166,23 @@ class StudyDoctor(Base):
     doctor: Mapped["Doctor"] = relationship("Doctor", back_populates="studies")
 
 
+class RandomizationRecord(Base):
+    __tablename__ = "randomization_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    study_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("studies.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    kit_code: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    treatment_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    assigned_patient_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    assigned_by_doctor_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("doctor.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    study: Mapped["Study"] = relationship("Study", back_populates="randomization_records")
+    assigned_by_doctor: Mapped[Optional["Doctor"]] = relationship("Doctor")
