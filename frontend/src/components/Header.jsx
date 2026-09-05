@@ -28,10 +28,10 @@ function Header({ children }) {
             Organizer
           </NavLink>
           <NavLink
-            to="/doctor"
+            to="/investigator"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
-            Doctor
+            Investigator
           </NavLink>
         </nav>
       </div>

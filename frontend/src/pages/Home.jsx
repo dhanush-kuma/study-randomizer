@@ -25,7 +25,7 @@ function Home() {
       })
       .then((data) => {
         if (data.initialized) {
-          navigate('/doctor/login', { replace: true })
+          navigate('/admin/login', { replace: true })
         } else {
           setStatusMsg(data.message)
           setPhase('ready')
@@ -51,8 +51,8 @@ function Home() {
         setFormError(data.detail || 'Setup failed.')
         return
       }
-      // Setup complete — send the user to the doctor login page
-      navigate('/doctor/login', { replace: true })
+      // Setup complete — send the user to the admin login page
+      navigate('/admin/login', { replace: true })
     } catch {
       setFormError('Could not connect to backend.')
     } finally {
@@ -88,13 +88,15 @@ function Home() {
               </div>
 
               {!showSetup ? (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowSetup(true)}
-                >
-                  Open setup form
-                </button>
+                <div className="setup-form">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setShowSetup(true)}
+                  >
+                    Open setup form
+                  </button>
+                </div>
               ) : (
                 <form className="setup-form" onSubmit={handleSetup} noValidate>
                   <div className="field">
