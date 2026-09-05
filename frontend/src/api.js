@@ -75,3 +75,17 @@ export async function apiFetch(path, options = {}) {
     credentials: 'include',
   })
 }
+
+/** POST multipart/form-data (e.g. file upload). Do not set Content-Type manually. */
+export async function apiUpload(path, formData) {
+  const headers = new Headers()
+  const csrf = await bootstrapCsrfIfNeeded(path)
+  if (csrf) headers.set('X-CSRF-Token', csrf)
+
+  return fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  })
+}

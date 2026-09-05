@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { apiFetch, storeCsrfFromResponse } from '../api'
+import { apiFetch, apiUpload, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 const STATUS_LABELS = {
@@ -18,7 +18,10 @@ function StudyInvestigators() {
   const [name, setName] = useState('')
   const [error, setError] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
+  const [csvError, setCsvError] = useState(null)
+  const [csvResult, setCsvResult] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [csvUploading, setCsvUploading] = useState(false)
   const [actionLoading, setActionLoading] = useState(null) // id of investigator being updated
   const [pendingAction, setPendingAction] = useState(null) // { type, id, label }
 
@@ -59,6 +62,45 @@ function StudyInvestigators() {
       })
       .catch(() => navigate('/organizer/login', { replace: true }))
   }, [navigate, studyId])
+
+  async function handleCsvUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setCsvError('Please select a .csv file.')
+      e.target.value = ''
+      return
+    }
+
+    setCsvError(null)
+    setCsvResult(null)
+    setCsvUploading(true)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await apiUpload(
+        `/organizer/studies/${studyId}/investigators/bulk`,
+        formData
+      )
+      const data = await res.json()
+
+      if (!res.ok) {
+        setCsvError(typeof data.detail === 'string' ? data.detail : 'Failed to process CSV.')
+        return
+      }
+
+      setCsvResult(data)
+      loadInvestigators()
+    } catch {
+      setCsvError('Could not connect to backend.')
+    } finally {
+      setCsvUploading(false)
+      e.target.value = ''
+    }
+  }
 
   async function handleInvite(e) {
     e.preventDefault()
@@ -161,45 +203,112 @@ function StudyInvestigators() {
               </p>
             </div>
 
-            {/* Invite form */}
-            <div className="setup-card">
-              <div className="setup-card__header">
-                <span className="setup-badge">Add Investigator</span>
-                <h2>Invite an investigator</h2>
-                <p>
-                  The system will generate a username and temporary password and send them
-                  to the provided email address.
-                </p>
+            {/* Invite panels */}
+            <div className="invite-panels">
+              <div className="setup-card">
+                <div className="setup-card__header">
+                  <span className="setup-badge">Single Invite</span>
+                  <h2>Invite one investigator</h2>
+                  <p>
+                    The system will generate a username and temporary password and send them
+                    to the provided email address.
+                  </p>
+                </div>
+
+                <form className="setup-form" onSubmit={handleInvite} noValidate>
+                  <div className="field">
+                    <label htmlFor="inv-email">Email *</label>
+                    <input
+                      id="inv-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="investigator@hospital.org"
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="inv-name">Full name (optional)</label>
+                    <input
+                      id="inv-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Dr. Jane Smith"
+                    />
+                  </div>
+                  {error && <p className="error">{error}</p>}
+                  {successMsg && <p className="success-msg">{successMsg}</p>}
+                  <button type="submit" className="btn-primary" disabled={submitting}>
+                    {submitting ? 'Adding…' : 'Add Investigator'}
+                  </button>
+                </form>
               </div>
 
-              <form className="setup-form" onSubmit={handleInvite} noValidate>
-                <div className="field">
-                  <label htmlFor="inv-email">Email *</label>
-                  <input
-                    id="inv-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="investigator@hospital.org"
-                    required
-                  />
+              <div className="setup-card">
+                <div className="setup-card__header">
+                  <span className="setup-badge">Bulk Invite</span>
+                  <h2>Upload CSV</h2>
+                  <p>
+                    Invite many investigators at once. Each row is processed and credentials
+                    are emailed automatically.
+                  </p>
                 </div>
-                <div className="field">
-                  <label htmlFor="inv-name">Full name (optional)</label>
-                  <input
-                    id="inv-name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Dr. Jane Smith"
-                  />
+
+                <div className="setup-form csv-upload-area">
+                  <ul className="csv-instructions">
+                    <li>CSV must have exactly <strong>2 columns</strong>: email, then name.</li>
+                    <li>Do <strong>not</strong> include a header row — data only.</li>
+                    <li>Name is optional and may be left empty; email is required on every row.</li>
+                    <li>Maximum 100 investigators per file.</li>
+                  </ul>
+
+                  <a
+                    className="csv-sample-link"
+                    href="/samples/investigator-invite-sample.csv"
+                    download="investigator-invite-sample.csv"
+                  >
+                    Download sample CSV
+                  </a>
+
+                  <div className="field">
+                    <label htmlFor="inv-csv">Select CSV file</label>
+                    <input
+                      id="inv-csv"
+                      type="file"
+                      accept=".csv,text/csv"
+                      disabled={csvUploading}
+                      onChange={handleCsvUpload}
+                    />
+                  </div>
+
+                  {csvUploading && <p className="loading">Uploading and sending invitations…</p>}
+                  {csvError && <p className="error">{csvError}</p>}
+
+                  {csvResult && (
+                    <div>
+                      <p className="success-msg">
+                        {csvResult.created_count} invited, {csvResult.skipped_count} skipped,{' '}
+                        {csvResult.failed_count} failed.
+                      </p>
+                      {csvResult.results?.length > 0 && (
+                        <ul className="bulk-results">
+                          {csvResult.results.map((row) => (
+                            <li
+                              key={`${row.row}-${row.email}`}
+                              className={`bulk-results__${row.status}`}
+                            >
+                              Row {row.row} ({row.email})
+                              {row.username ? ` → ${row.username}` : ''}
+                              {row.message ? ` — ${row.message}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {error && <p className="error">{error}</p>}
-                {successMsg && <p className="success-msg">{successMsg}</p>}
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Adding…' : 'Add Investigator'}
-                </button>
-              </form>
+              </div>
             </div>
 
             {/* Investigators table */}

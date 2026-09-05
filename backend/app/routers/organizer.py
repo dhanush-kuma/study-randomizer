@@ -1,13 +1,16 @@
 import bcrypt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Request, Response, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import clear_auth_cookie, clear_csrf_cookie, set_auth_cookie, set_csrf_cookie
 from ..core.audit import audit
 from ..config import email_is_configured
-from ..core.email import send_investigator_credentials
-from ..core.investigators import generate_username, generate_temp_password
+from ..core.investigator_invite import (
+    DuplicateInvestigatorError,
+    create_and_send_investigator_invite,
+    parse_investigator_csv,
+)
 from ..core.rate_limit import limiter
 from ..core.security import (
     ROLE_ORGANIZER,
@@ -18,6 +21,8 @@ from ..core.security import (
 from ..database import get_db
 from ..models import Investigator, Organizer, Study, TreatmentArm
 from ..schemas import (
+    BulkInviteResponse,
+    BulkInviteRowResult,
     InviteInvestigatorRequest,
     InvestigatorOut,
     LoginRequest,
@@ -293,46 +298,15 @@ def invite_investigator(
     """
     study = _get_study_for_organizer(study_id, current_organizer.id, db)
 
-    # Prevent duplicate active investigators with the same email in the same study
-    existing = (
-        db.query(Investigator)
-        .filter(
-            Investigator.study_id == study_id,
-            Investigator.email == payload.email,
-            Investigator.status != "revoked",
-        )
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=409,
-            detail=f"An active investigator with email '{payload.email}' already exists in this study.",
-        )
-
-    username = generate_username(study_id, db)
-    temp_password = generate_temp_password()
-    password_hash = bcrypt.hashpw(temp_password.encode(), bcrypt.gensalt()).decode()
-
-    investigator = Investigator(
-        study_id=study_id,
-        email=payload.email,
-        name=payload.name.strip() if payload.name else None,
-        username=username,
-        password_hash=password_hash,
-        status="inactive",
-    )
-    db.add(investigator)
-    db.flush()  # get investigator.id before committing
-
     try:
-        send_investigator_credentials(
-            to_email=investigator.email,
-            name=investigator.name,
-            study_title=study.title,
-            protocol_code=study.protocol_code,
-            username=username,
-            temp_password=temp_password,
+        investigator = create_and_send_investigator_invite(
+            study=study,
+            email=payload.email,
+            name=payload.name.strip() if payload.name else None,
+            db=db,
         )
+    except DuplicateInvestigatorError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except RuntimeError as exc:
         db.rollback()
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -344,12 +318,137 @@ def invite_investigator(
         investigator_id=investigator.id,
         study_id=study_id,
         email=investigator.email,
-        username=username,
+        username=investigator.username,
         organizer=current_organizer.username,
         ip=request.client.host if request.client else None,
         email_configured=email_is_configured(),
     )
     return investigator
+
+
+@router.post(
+    "/studies/{study_id}/investigators/bulk",
+    response_model=BulkInviteResponse,
+)
+@limiter.limit("10/hour")
+async def bulk_invite_investigators(
+    request: Request,
+    study_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    """Invite multiple investigators from a 2-column CSV (email, name), no header row."""
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Please upload a .csv file.")
+
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
+    content = await file.read()
+
+    try:
+        parsed_rows = parse_investigator_csv(content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    results: list[BulkInviteRowResult] = []
+    seen_emails: set[str] = set()
+    created_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for row_num, name, email in parsed_rows:
+        if email in seen_emails:
+            skipped_count += 1
+            results.append(
+                BulkInviteRowResult(
+                    row=row_num,
+                    email=email,
+                    status="skipped",
+                    message="Duplicate email in CSV.",
+                )
+            )
+            continue
+        seen_emails.add(email)
+
+        try:
+            investigator = create_and_send_investigator_invite(
+                study=study,
+                email=email,
+                name=name,
+                db=db,
+            )
+            db.commit()
+            db.refresh(investigator)
+            created_count += 1
+            results.append(
+                BulkInviteRowResult(
+                    row=row_num,
+                    email=email,
+                    username=investigator.username,
+                    status="created",
+                )
+            )
+            audit(
+                "investigator.invited",
+                investigator_id=investigator.id,
+                study_id=study_id,
+                email=investigator.email,
+                username=investigator.username,
+                organizer=current_organizer.username,
+                ip=request.client.host if request.client else None,
+                email_configured=email_is_configured(),
+                bulk=True,
+            )
+        except DuplicateInvestigatorError as exc:
+            db.rollback()
+            skipped_count += 1
+            results.append(
+                BulkInviteRowResult(
+                    row=row_num,
+                    email=email,
+                    status="skipped",
+                    message=str(exc),
+                )
+            )
+        except RuntimeError as exc:
+            db.rollback()
+            failed_count += 1
+            results.append(
+                BulkInviteRowResult(
+                    row=row_num,
+                    email=email,
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+        except Exception:
+            db.rollback()
+            failed_count += 1
+            results.append(
+                BulkInviteRowResult(
+                    row=row_num,
+                    email=email,
+                    status="failed",
+                    message="Unexpected error while inviting investigator.",
+                )
+            )
+
+    audit(
+        "investigator.bulk_invited",
+        study_id=study_id,
+        organizer=current_organizer.username,
+        created_count=created_count,
+        skipped_count=skipped_count,
+        failed_count=failed_count,
+        ip=request.client.host if request.client else None,
+    )
+
+    return BulkInviteResponse(
+        created_count=created_count,
+        skipped_count=skipped_count,
+        failed_count=failed_count,
+        results=results,
+    )
 
 
 @router.patch(

@@ -272,6 +272,21 @@ class InvestigatorOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BulkInviteRowResult(BaseModel):
+    row: int
+    email: str
+    username: Optional[str] = None
+    status: str
+    message: Optional[str] = None
+
+
+class BulkInviteResponse(BaseModel):
+    created_count: int
+    skipped_count: int
+    failed_count: int
+    results: list[BulkInviteRowResult]
+
+
 class InvestigatorInfo(BaseModel):
     id: int
     username: str
