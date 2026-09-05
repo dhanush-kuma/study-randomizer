@@ -1,5 +1,6 @@
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import clear_auth_cookie, clear_csrf_cookie, set_auth_cookie, set_csrf_cookie
@@ -46,6 +47,23 @@ def _get_study_for_organizer(study_id: int, organizer_id: int, db: Session) -> S
     if not study:
         raise HTTPException(status_code=404, detail="Study not found.")
     return study
+
+
+def _ensure_protocol_code_available(
+    db: Session,
+    protocol_code: str,
+    *,
+    exclude_study_id: int | None = None,
+) -> None:
+    """Ensure protocol_code is unique across all studies (system-wide, not per organizer)."""
+    query = db.query(Study).filter(Study.protocol_code == protocol_code.strip())
+    if exclude_study_id is not None:
+        query = query.filter(Study.id != exclude_study_id)
+    if query.first():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Study with protocol code '{protocol_code}' already exists.",
+        )
 
 
 @router.get("/me", response_model=OrganizerInfo)
@@ -109,16 +127,7 @@ def create_study(
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    existing = (
-        db.query(Study)
-        .filter(Study.protocol_code == payload.protocol_code.strip())
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Study with protocol code '{payload.protocol_code}' already exists.",
-        )
+    _ensure_protocol_code_available(db, payload.protocol_code)
 
     study = Study(
         organizer_id=current_organizer.id,
@@ -147,7 +156,14 @@ def create_study(
         )
         db.add(arm)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Study with protocol code '{payload.protocol_code}' already exists.",
+        ) from None
     db.refresh(study)
     audit(
         "study.created",
@@ -188,9 +204,25 @@ def update_study(
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
     study = _get_study_for_organizer(study_id, current_organizer.id, db)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "protocol_code" in updates and updates["protocol_code"] is not None:
+        _ensure_protocol_code_available(
+            db,
+            updates["protocol_code"],
+            exclude_study_id=study_id,
+        )
+        updates["protocol_code"] = updates["protocol_code"].strip()
+    for field, value in updates.items():
         setattr(study, field, value)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        protocol_code = updates.get("protocol_code", study.protocol_code)
+        raise HTTPException(
+            status_code=409,
+            detail=f"Study with protocol code '{protocol_code}' already exists.",
+        ) from None
     db.refresh(study)
     audit("study.updated", study_id=study_id, organizer=current_organizer.username)
     return study

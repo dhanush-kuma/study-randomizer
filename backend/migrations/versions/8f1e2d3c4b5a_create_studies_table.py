@@ -30,7 +30,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column('title', sa.String(length=255), nullable=False),
-        sa.Column('protocol_code', sa.String(length=100), nullable=False),
+        sa.Column('protocol_code', sa.String(length=100), nullable=False, unique=True),
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column(
             'blinding_type',
@@ -71,7 +71,6 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.UniqueConstraint('protocol_code', name='uq_studies_protocol_code'),
     )
 
 

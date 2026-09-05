@@ -207,6 +207,16 @@ class StudyUpdate(BaseModel):
     emergency_unblinding_allowed: Optional[bool] = None
     status: Optional[str] = None
 
+    @field_validator("protocol_code")
+    @classmethod
+    def protocol_code_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("Protocol code cannot be empty")
+        return v
+
     @field_validator("block_size_min", "block_size_max")
     @classmethod
     def positive_block_size(cls, v: Optional[int]) -> Optional[int]:

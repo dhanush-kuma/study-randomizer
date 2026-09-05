@@ -3,6 +3,14 @@ import { useNavigate, Link } from 'react-router-dom'
 import { apiFetch } from '../api'
 import Header from '../components/Header'
 
+function parseApiError(detail) {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg || item).join(', ')
+  }
+  return null
+}
+
 function CreateStudy() {
   const navigate = useNavigate()
   const [organizer, setOrganizer] = useState(null)
@@ -54,7 +62,17 @@ function CreateStudy() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.detail || 'Failed to create study.')
+        const message =
+          parseApiError(data.detail) ||
+          (res.status === 409
+            ? `A study with protocol code "${protocolCode.trim()}" already exists. Please use a different protocol code.`
+            : 'Failed to create study.')
+
+        if (res.status === 409) {
+          document.getElementById('protocol-code')?.focus()
+        }
+
+        setError(message)
         return
       }
 
