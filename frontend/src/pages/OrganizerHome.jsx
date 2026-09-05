@@ -149,11 +149,11 @@ function OrganizerHome() {
                             View Study
                           </Link>
                           <Link
-                            to={`/organizer/studies/${study.id}/invites`}
+                            to={`/organizer/studies/${study.id}/investigators`}
                             className="btn-secondary"
                             style={{ textDecoration: 'none', fontSize: '12px', padding: '4px 10px' }}
                           >
-                            Invite
+                            Investigators
                           </Link>
                         </div>
                       </td>

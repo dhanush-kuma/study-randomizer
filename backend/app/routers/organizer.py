@@ -5,12 +5,8 @@ from sqlalchemy.orm import Session
 from ..config import clear_auth_cookie, clear_csrf_cookie, set_auth_cookie, set_csrf_cookie
 from ..core.audit import audit
 from ..config import email_is_configured
-from ..core.email import send_study_invitation
-from ..core.invitations import (
-    generate_invitation_token,
-    get_study_for_organizer,
-    invitation_expires_at,
-)
+from ..core.email import send_investigator_credentials
+from ..core.investigators import generate_username, generate_temp_password
 from ..core.rate_limit import limiter
 from ..core.security import (
     ROLE_ORGANIZER,
@@ -19,10 +15,10 @@ from ..core.security import (
     revoke_token,
 )
 from ..database import get_db
-from ..models import Organizer, Study, StudyInvitation, TreatmentArm
+from ..models import Investigator, Organizer, Study, TreatmentArm
 from ..schemas import (
-    InvitationOut,
-    InviteDoctorRequest,
+    InviteInvestigatorRequest,
+    InvestigatorOut,
     LoginRequest,
     LoginResponse,
     MessageResponse,
@@ -38,6 +34,18 @@ router = APIRouter(prefix="/organizer", tags=["organizer"])
 
 COOKIE_NAME = "organizer_access_token"
 COOKIE_MAX_AGE = 60 * 60 * 24
+
+
+def _get_study_for_organizer(study_id: int, organizer_id: int, db: Session) -> Study:
+    """Return the study only if it belongs to the given organizer, else 404."""
+    study = (
+        db.query(Study)
+        .filter(Study.id == study_id, Study.organizer_id == organizer_id)
+        .first()
+    )
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found.")
+    return study
 
 
 @router.get("/me", response_model=OrganizerInfo)
@@ -169,7 +177,7 @@ def get_study(
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    return get_study_for_organizer(study_id, current_organizer.id, db)
+    return _get_study_for_organizer(study_id, current_organizer.id, db)
 
 
 @router.patch("/studies/{study_id}", response_model=StudyOut)
@@ -179,7 +187,7 @@ def update_study(
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    study = get_study_for_organizer(study_id, current_organizer.id, db)
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(study, field, value)
     db.commit()
@@ -195,7 +203,7 @@ def set_treatment_arms(
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    study = get_study_for_organizer(study_id, current_organizer.id, db)
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
 
     # Replace all existing arms
     db.query(TreatmentArm).filter(TreatmentArm.study_id == study.id).delete()
@@ -218,82 +226,125 @@ def set_treatment_arms(
     audit("study.arms.updated", study_id=study_id, count=len(new_arms), organizer=current_organizer.username)
     return new_arms
 
-@router.get("/studies/{study_id}/invitations", response_model=list[InvitationOut])
-def list_invitations(
+@router.get("/studies/{study_id}/investigators", response_model=list[InvestigatorOut])
+def list_investigators(
     study_id: int,
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    get_study_for_organizer(study_id, current_organizer.id, db)
+    """Return all investigators for the given study."""
+    _get_study_for_organizer(study_id, current_organizer.id, db)
     return (
-        db.query(StudyInvitation)
-        .filter(StudyInvitation.study_id == study_id)
-        .order_by(StudyInvitation.created_at.desc())
+        db.query(Investigator)
+        .filter(Investigator.study_id == study_id)
+        .order_by(Investigator.created_at.desc())
         .all()
     )
 
 
-@router.post("/studies/{study_id}/invitations", response_model=InvitationOut, status_code=201)
-@limiter.limit("10/hour")
-def invite_doctor(
+@router.post("/studies/{study_id}/investigators", response_model=InvestigatorOut, status_code=201)
+@limiter.limit("20/hour")
+def invite_investigator(
     request: Request,
     study_id: int,
-    payload: InviteDoctorRequest,
+    payload: InviteInvestigatorRequest,
     db: Session = Depends(get_db),
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
-    study = get_study_for_organizer(study_id, current_organizer.id, db)
+    """
+    Create an investigator record for this study with system-generated credentials
+    and send the credentials to the provided email address.
+    """
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
 
-    pending = (
-        db.query(StudyInvitation)
+    # Prevent duplicate active investigators with the same email in the same study
+    existing = (
+        db.query(Investigator)
         .filter(
-            StudyInvitation.study_id == study_id,
-            StudyInvitation.email == payload.email,
-            StudyInvitation.status == "pending",
+            Investigator.study_id == study_id,
+            Investigator.email == payload.email,
+            Investigator.status != "revoked",
         )
         .first()
     )
-
-    if pending:
-        pending.token = generate_invitation_token()
-        pending.expires_at = invitation_expires_at()
-        pending.full_name = payload.full_name.strip() if payload.full_name else pending.full_name
-        invitation = pending
-    else:
-        invitation = StudyInvitation(
-            study_id=study_id,
-            email=payload.email,
-            full_name=payload.full_name.strip() if payload.full_name else None,
-            token=generate_invitation_token(),
-            status="pending",
-            invited_by_organizer_id=current_organizer.id,
-            expires_at=invitation_expires_at(),
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"An active investigator with email '{payload.email}' already exists in this study.",
         )
-        db.add(invitation)
 
-    db.flush()
-    db.refresh(invitation)
+    username = generate_username(study_id, db)
+    temp_password = generate_temp_password()
+    password_hash = bcrypt.hashpw(temp_password.encode(), bcrypt.gensalt()).decode()
+
+    investigator = Investigator(
+        study_id=study_id,
+        email=payload.email,
+        name=payload.name.strip() if payload.name else None,
+        username=username,
+        password_hash=password_hash,
+        status="inactive",
+    )
+    db.add(investigator)
+    db.flush()  # get investigator.id before committing
 
     try:
-        send_study_invitation(
-            to_email=invitation.email,
-            doctor_name=invitation.full_name,
+        send_investigator_credentials(
+            to_email=investigator.email,
+            name=investigator.name,
             study_title=study.title,
             protocol_code=study.protocol_code,
-            invitation_token=invitation.token,
+            username=username,
+            temp_password=temp_password,
         )
     except RuntimeError as exc:
         db.rollback()
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     db.commit()
-    db.refresh(invitation)
+    db.refresh(investigator)
     audit(
-        "invitation.sent",
+        "investigator.invited",
+        investigator_id=investigator.id,
         study_id=study_id,
-        email=invitation.email,
+        email=investigator.email,
+        username=username,
         organizer=current_organizer.username,
         ip=request.client.host if request.client else None,
         email_configured=email_is_configured(),
     )
-    return invitation
+    return investigator
+
+
+@router.patch(
+    "/studies/{study_id}/investigators/{investigator_id}/revoke",
+    response_model=InvestigatorOut,
+)
+def revoke_investigator(
+    study_id: int,
+    investigator_id: int,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    """Revoke an investigator's access to the study."""
+    _get_study_for_organizer(study_id, current_organizer.id, db)
+    investigator = (
+        db.query(Investigator)
+        .filter(Investigator.id == investigator_id, Investigator.study_id == study_id)
+        .first()
+    )
+    if not investigator:
+        raise HTTPException(status_code=404, detail="Investigator not found.")
+    if investigator.status == "revoked":
+        raise HTTPException(status_code=409, detail="Investigator access is already revoked.")
+
+    investigator.status = "revoked"
+    db.commit()
+    db.refresh(investigator)
+    audit(
+        "investigator.revoked",
+        investigator_id=investigator.id,
+        study_id=study_id,
+        organizer=current_organizer.username,
+    )
+    return investigator

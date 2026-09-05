@@ -7,13 +7,13 @@ from sqlalchemy.orm import Session
 
 from ..config import SECRET_KEY
 from ..database import get_db
-from ..models import Admin, Doctor, Organizer, RevokedToken
+from ..models import Admin, Investigator, Organizer, RevokedToken
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 ROLE_ADMIN = "admin"
 ROLE_ORGANIZER = "organizer"
-ROLE_DOCTOR = "doctor"
+ROLE_INVESTIGATOR = "investigator"
 
 
 def create_access_token(username: str, role: str) -> str:
@@ -102,14 +102,20 @@ def get_current_organizer(
     return organizer
 
 
-def get_current_doctor(
-    doctor_access_token: str | None = Cookie(default=None),
+def get_current_investigator(
+    investigator_access_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
-) -> Doctor:
-    user = _resolve_user(doctor_access_token, ROLE_DOCTOR, db)
-    doctor = db.query(Doctor).filter(Doctor.username == user["username"]).first()
-    if not doctor:
-        raise HTTPException(status_code=401, detail="Doctor not found.")
-    if not doctor.is_active:
-        raise HTTPException(status_code=401, detail="Doctor account is deactivated.")
-    return doctor
+) -> Investigator:
+    """
+    Resolve the currently authenticated investigator from the session cookie.
+    The JWT `sub` stores the investigator's database id (as a string).
+    """
+    user = _resolve_user(investigator_access_token, ROLE_INVESTIGATOR, db)
+    investigator = db.query(Investigator).filter(
+        Investigator.id == int(user["username"])
+    ).first()
+    if not investigator:
+        raise HTTPException(status_code=401, detail="Investigator not found.")
+    if investigator.status == "revoked":
+        raise HTTPException(status_code=401, detail="Investigator access has been revoked.")
+    return investigator

@@ -43,30 +43,35 @@ def send_email(to: str, subject: str, body: str) -> None:
         server.send_message(message)
 
 
-def send_study_invitation(
+def send_investigator_credentials(
     to_email: str,
-    doctor_name: str | None,
+    name: str | None,
     study_title: str,
     protocol_code: str,
-    invitation_token: str,
+    username: str,
+    temp_password: str,
 ) -> None:
-    signup_url = f"{FRONTEND_URL.rstrip('/')}/doctor/signup?token={invitation_token}"
-    greeting = doctor_name.strip() if doctor_name and doctor_name.strip() else "Doctor"
+    login_url = f"{FRONTEND_URL.rstrip('/')}/investigator/login"
+    greeting = name.strip() if name and name.strip() else "Investigator"
 
-    subject = f"Invitation to join study: {protocol_code}"
+    subject = f"Your investigator credentials for study: {protocol_code}"
     body = f"""Hello {greeting},
 
-You have been invited to join a clinical study on Study Randomizer.
+You have been added as an investigator on a clinical study on Study Randomizer.
 
 Study: {study_title}
 Protocol code: {protocol_code}
 
-Create your account using this link (expires in 7 days):
-{signup_url}
+Your login credentials:
+  Username : {username}
+  Password : {temp_password}
 
-If you already have a doctor account, log in and accept the invitation from the same link.
+Login at: {login_url}
 
-If you did not expect this email, you can ignore it.
+Use your Trial ID ({protocol_code}), username, and the password above to sign in.
+You can change your password after logging in.
+
+If you did not expect this email, please contact the study organizer.
 
 — Study Randomizer
 """

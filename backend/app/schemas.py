@@ -65,8 +65,10 @@ class LoginRequest(BaseModel):
         return validate_login_password(v)
 
 
-class DoctorLoginRequest(LoginRequest):
+class InvestigatorLoginRequest(BaseModel):
     trial_id: str
+    username: str
+    password: str
 
     @field_validator("trial_id")
     @classmethod
@@ -76,8 +78,18 @@ class DoctorLoginRequest(LoginRequest):
             raise ValueError("Trial ID cannot be empty")
         return v
 
+    @field_validator("username")
+    @classmethod
+    def username_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Username cannot be empty")
+        return v
 
-
+    @field_validator("password")
+    @classmethod
+    def password_bounds(cls, v: str) -> str:
+        return validate_login_password(v)
 class AdminInfo(BaseModel):
     username: str
 
@@ -223,9 +235,9 @@ class StudyOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class InviteDoctorRequest(BaseModel):
+class InviteInvestigatorRequest(BaseModel):
     email: str
-    full_name: Optional[str] = None
+    name: Optional[str] = None
 
     @field_validator("email")
     @classmethod
@@ -236,60 +248,37 @@ class InviteDoctorRequest(BaseModel):
         return v
 
 
-class InvitationOut(BaseModel):
+class InvestigatorOut(BaseModel):
     id: int
     study_id: int
     email: str
-    full_name: Optional[str] = None
+    name: Optional[str] = None
+    username: str
     status: str
     created_at: datetime
-    expires_at: datetime
-    accepted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
 
-class InvitationPreview(BaseModel):
-    email: str
-    full_name: Optional[str] = None
-    study_title: str
-    protocol_code: str
-    expires_at: datetime
-    account_exists: bool
-
-
-class DoctorSignupRequest(BaseModel):
-    token: str
-    username: str
-    password: str
-    full_name: Optional[str] = None
-
-    @field_validator("username")
-    @classmethod
-    def username_not_empty(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("Username cannot be empty")
-        return v
-
-    @field_validator("password")
-    @classmethod
-    def password_strength(cls, v: str) -> str:
-        return validate_new_password(v)
-
-
-class DoctorInfo(BaseModel):
-    username: str
-    email: str
-    full_name: Optional[str] = None
-
-
-class DoctorStudyOut(BaseModel):
+class InvestigatorInfo(BaseModel):
     id: int
-    title: str
-    protocol_code: str
+    username: str
+    email: str
+    name: Optional[str] = None
+    study_id: int
     status: str
-    blinding_type: str
-    joined_at: datetime
 
-    model_config = {"from_attributes": True}
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("current_password")
+    @classmethod
+    def current_password_bounds(cls, v: str) -> str:
+        return validate_login_password(v)
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_strength(cls, v: str) -> str:
+        return validate_new_password(v)

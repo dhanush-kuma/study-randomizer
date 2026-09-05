@@ -66,11 +66,8 @@ class Study(Base):
     treatment_arms: Mapped[list["TreatmentArm"]] = relationship(
         "TreatmentArm", back_populates="study", cascade="all, delete-orphan"
     )
-    invitations: Mapped[list["StudyInvitation"]] = relationship(
-        "StudyInvitation", back_populates="study", cascade="all, delete-orphan"
-    )
-    doctors: Mapped[list["StudyDoctor"]] = relationship(
-        "StudyDoctor", back_populates="study", cascade="all, delete-orphan"
+    investigators: Mapped[list["Investigator"]] = relationship(
+        "Investigator", back_populates="study", cascade="all, delete-orphan"
     )
     randomization_records: Mapped[list["RandomizationRecord"]] = relationship(
         "RandomizationRecord", back_populates="study", cascade="all, delete-orphan"
@@ -102,68 +99,25 @@ class TreatmentArm(Base):
     study: Mapped["Study"] = relationship("Study", back_populates="treatment_arms")
 
 
-class Doctor(Base):
-    __tablename__ = "doctor"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    username: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-    studies: Mapped[list["StudyDoctor"]] = relationship(
-        "StudyDoctor", back_populates="doctor", cascade="all, delete-orphan"
-    )
-
-
-class StudyInvitation(Base):
-    __tablename__ = "study_invitations"
+class Investigator(Base):
+    __tablename__ = "investigator"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     study_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("studies.id", ondelete="CASCADE"), nullable=False
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    invited_by_organizer_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("organizer.id"), nullable=False
-    )
-    doctor_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("doctor.id"), nullable=True
-    )
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Zero-padded sequential number unique within a study, e.g. "000001"
+    username: Mapped[str] = mapped_column(String(10), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # inactive (just created) → active (first login) → revoked
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="inactive")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    accepted_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
 
-    study: Mapped["Study"] = relationship("Study", back_populates="invitations")
-
-
-class StudyDoctor(Base):
-    __tablename__ = "study_doctors"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    study_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("studies.id", ondelete="CASCADE"), nullable=False
-    )
-    doctor_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("doctor.id", ondelete="CASCADE"), nullable=False
-    )
-    joined_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-    study: Mapped["Study"] = relationship("Study", back_populates="doctors")
-    doctor: Mapped["Doctor"] = relationship("Doctor", back_populates="studies")
+    study: Mapped["Study"] = relationship("Study", back_populates="investigators")
 
 
 class RandomizationRecord(Base):
@@ -177,12 +131,12 @@ class RandomizationRecord(Base):
     kit_code: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     treatment_name: Mapped[str] = mapped_column(String(255), nullable=False)
     assigned_patient_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    assigned_by_doctor_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("doctor.id", ondelete="SET NULL"), nullable=True
+    assigned_by_investigator_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("investigator.id", ondelete="SET NULL"), nullable=True
     )
     assigned_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
     study: Mapped["Study"] = relationship("Study", back_populates="randomization_records")
-    assigned_by_doctor: Mapped[Optional["Doctor"]] = relationship("Doctor")
+    assigned_by_investigator: Mapped[Optional["Investigator"]] = relationship("Investigator")
