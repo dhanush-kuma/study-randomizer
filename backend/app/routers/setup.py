@@ -1,8 +1,8 @@
 import bcrypt
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from ..config import SETUP_TOKEN_HEADER, verify_setup_token
+from ..config import verify_setup_token
 from ..core.audit import audit
 from ..core.rate_limit import limiter
 from ..database import get_db
@@ -23,14 +23,8 @@ def health_check():
 def setup_status(
     request: Request,
     db: Session = Depends(get_db),
-    setup_token: str | None = Header(default=None, alias=SETUP_TOKEN_HEADER),
 ):
-    """Check whether initial setup is required. Requires a valid setup token."""
-    try:
-        verify_setup_token(setup_token)
-    except ValueError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-
+    """Check whether initial setup is required. Public endpoint — initialized state is not sensitive."""
     admin_exists = db.query(Admin).first() is not None
     if admin_exists:
         return StatusResponse(initialized=True, message="System is ready.")

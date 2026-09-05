@@ -23,6 +23,7 @@ from ..database import get_db
 from ..models import Doctor, Study, StudyDoctor, StudyInvitation
 from ..schemas import (
     DoctorInfo,
+    DoctorLoginRequest,
     DoctorSignupRequest,
     DoctorStudyOut,
     InvitationPreview,
@@ -124,7 +125,7 @@ def accept_invitation_route(
 @limiter.limit("5/minute")
 def login(
     request: Request,
-    payload: LoginRequest,
+    payload: DoctorLoginRequest,
     response: Response,
     db: Session = Depends(get_db),
 ):
@@ -142,12 +143,29 @@ def login(
     if not doctor.is_active:
         raise HTTPException(status_code=401, detail="Doctor account is deactivated.")
 
+    # Validate trial ID — must be an existing study the doctor is enrolled in
+    study = db.query(Study).filter(Study.protocol_code == payload.trial_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Trial ID not found.")
+
+    enrolled = (
+        db.query(StudyDoctor)
+        .filter(StudyDoctor.study_id == study.id, StudyDoctor.doctor_id == doctor.id)
+        .first()
+    )
+    if not enrolled:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not enrolled in this trial.",
+        )
+
     token = create_access_token(doctor.username, ROLE_DOCTOR)
     set_auth_cookie(response, COOKIE_NAME, token, COOKIE_MAX_AGE)
     csrf_token = set_csrf_cookie(response, COOKIE_MAX_AGE)
     audit(
         "doctor.login.success",
         username=doctor.username,
+        trial_id=payload.trial_id,
         ip=request.client.host if request.client else None,
     )
     return LoginResponse(message="Login successful.", csrf_token=csrf_token)

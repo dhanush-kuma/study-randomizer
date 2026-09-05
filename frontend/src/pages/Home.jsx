@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
 function Home() {
+  const navigate = useNavigate()
   const [phase, setPhase] = useState('loading')
   const [statusMsg, setStatusMsg] = useState('')
   const [error, setError] = useState(null)
@@ -16,20 +18,24 @@ function Home() {
   const [showSetup, setShowSetup] = useState(false)
 
   useEffect(() => {
-    apiFetch('/')
+    apiFetch('/setup/status')
       .then((res) => {
         if (!res.ok) throw new Error('Could not reach backend.')
         return res.json()
       })
       .then((data) => {
-        setStatusMsg(data.message)
-        setPhase('ready')
+        if (data.initialized) {
+          navigate('/doctor/login', { replace: true })
+        } else {
+          setStatusMsg(data.message)
+          setPhase('ready')
+        }
       })
       .catch((err) => {
         setError(err.message)
         setPhase('error')
       })
-  }, [])
+  }, [navigate])
 
   async function handleSetup(e) {
     e.preventDefault()
@@ -45,11 +51,8 @@ function Home() {
         setFormError(data.detail || 'Setup failed.')
         return
       }
-      setStatusMsg(data.message)
-      setShowSetup(false)
-      setSetupToken('')
-      setUsername('')
-      setPassword('')
+      // Setup complete — send the user to the doctor login page
+      navigate('/doctor/login', { replace: true })
     } catch {
       setFormError('Could not connect to backend.')
     } finally {

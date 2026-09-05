@@ -9,6 +9,7 @@ function DoctorLogin() {
   const [searchParams] = useSearchParams()
   const inviteToken = searchParams.get('token') || ''
 
+  const [trialId, setTrialId] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -22,7 +23,7 @@ function DoctorLogin() {
     try {
       const res = await apiFetch('/doctor/login', {
         method: 'POST',
-        json: { username, password },
+        json: { trial_id: trialId, username, password },
       })
       const data = await res.json()
 
@@ -67,11 +68,24 @@ function DoctorLogin() {
             <p>
               {inviteToken
                 ? 'Log in to accept your study invitation.'
-                : 'Enter your doctor credentials to continue.'}
+                : 'Enter your trial ID and credentials to continue.'}
             </p>
           </div>
 
           <form className="setup-form" onSubmit={handleLogin} noValidate>
+            <div className="field">
+              <label htmlFor="doctor-login-trial-id">Trial ID</label>
+              <input
+                id="doctor-login-trial-id"
+                type="text"
+                value={trialId}
+                onChange={(e) => setTrialId(e.target.value)}
+                placeholder="Protocol code (e.g. TRL-2024-001)"
+                required
+                autoFocus
+                autoComplete="off"
+              />
+            </div>
             <div className="field">
               <label htmlFor="doctor-login-username">Username</label>
               <input
@@ -80,7 +94,7 @@ function DoctorLogin() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                autoFocus
+                autoComplete="username"
               />
             </div>
             <div className="field">

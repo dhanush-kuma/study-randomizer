@@ -65,6 +65,19 @@ class LoginRequest(BaseModel):
         return validate_login_password(v)
 
 
+class DoctorLoginRequest(LoginRequest):
+    trial_id: str
+
+    @field_validator("trial_id")
+    @classmethod
+    def trial_id_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Trial ID cannot be empty")
+        return v
+
+
+
 class AdminInfo(BaseModel):
     username: str
 
