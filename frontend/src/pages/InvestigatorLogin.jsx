@@ -1,17 +1,24 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { apiFetch, setCsrfToken } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
 function InvestigatorLogin() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [trialId, setTrialId] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const trialIdFromLink = Boolean(searchParams.get('tid'))
+
+  useEffect(() => {
+    const tid = searchParams.get('tid')
+    if (tid) setTrialId(tid)
+  }, [searchParams])
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -65,9 +72,9 @@ function InvestigatorLogin() {
                 type="text"
                 value={trialId}
                 onChange={(e) => setTrialId(e.target.value)}
-                placeholder="Protocol code (e.g. TRL-2024-001)"
+                placeholder="e.g. TRL-2024-001"
                 required
-                autoFocus
+                autoFocus={!trialIdFromLink}
                 autoComplete="off"
               />
             </div>
@@ -80,6 +87,7 @@ function InvestigatorLogin() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="e.g. 000001"
                 required
+                autoFocus={trialIdFromLink}
                 autoComplete="username"
               />
             </div>

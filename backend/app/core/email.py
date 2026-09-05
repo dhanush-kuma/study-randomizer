@@ -1,6 +1,7 @@
 import logging
 import smtplib
 from email.message import EmailMessage
+from urllib.parse import quote
 
 from ..config import (
     FRONTEND_URL,
@@ -51,24 +52,27 @@ def send_investigator_credentials(
     username: str,
     temp_password: str,
 ) -> None:
-    login_url = f"{FRONTEND_URL.rstrip('/')}/investigator/login"
+    trial_id = protocol_code.strip()
+    login_url = (
+        f"{FRONTEND_URL.rstrip('/')}/investigator/login?tid={quote(trial_id, safe='')}"
+    )
     greeting = name.strip() if name and name.strip() else "Investigator"
 
-    subject = f"Your investigator credentials for study: {protocol_code}"
+    subject = f"Your investigator credentials for study: {study_title}"
     body = f"""Hello {greeting},
 
 You have been added as an investigator on a clinical study on Study Randomizer.
 
 Study: {study_title}
-Protocol code: {protocol_code}
 
 Your login credentials:
+  Trial ID : {trial_id}
   Username : {username}
   Password : {temp_password}
 
 Login at: {login_url}
 
-Use your Trial ID ({protocol_code}), username, and the password above to sign in.
+Open the link above to sign in.
 You can change your password after logging in.
 
 If you did not expect this email, please contact the study organizer.
