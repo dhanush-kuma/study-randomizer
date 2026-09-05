@@ -162,7 +162,8 @@ class StudyCreate(BaseModel):
     blinding_type: str = "Double-Blind"
     target_sample_size: Optional[int] = None
     randomization_method: str = "Permuted Block"
-    block_size_rules: Optional[str] = None
+    block_size_min: Optional[int] = None
+    block_size_max: Optional[int] = None
     emergency_unblinding_allowed: bool = True
     treatment_arms: list[TreatmentArmCreate] = []
 
@@ -174,6 +175,13 @@ class StudyCreate(BaseModel):
             raise ValueError("Field cannot be empty")
         return v
 
+    @field_validator("block_size_min", "block_size_max")
+    @classmethod
+    def positive_block_size(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("Block size must be at least 1")
+        return v
+
 
 class StudyUpdate(BaseModel):
     title: Optional[str] = None
@@ -182,9 +190,17 @@ class StudyUpdate(BaseModel):
     blinding_type: Optional[str] = None
     target_sample_size: Optional[int] = None
     randomization_method: Optional[str] = None
-    block_size_rules: Optional[str] = None
+    block_size_min: Optional[int] = None
+    block_size_max: Optional[int] = None
     emergency_unblinding_allowed: Optional[bool] = None
     status: Optional[str] = None
+
+    @field_validator("block_size_min", "block_size_max")
+    @classmethod
+    def positive_block_size(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("Block size must be at least 1")
+        return v
 
 
 class StudyOut(BaseModel):
@@ -196,7 +212,8 @@ class StudyOut(BaseModel):
     blinding_type: str
     target_sample_size: Optional[int] = None
     randomization_method: str
-    block_size_rules: Optional[str] = None
+    block_size_min: Optional[int] = None
+    block_size_max: Optional[int] = None
     emergency_unblinding_allowed: bool
     status: str
     created_at: datetime

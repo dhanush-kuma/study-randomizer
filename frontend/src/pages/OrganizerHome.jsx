@@ -114,7 +114,7 @@ function OrganizerHome() {
                     <th>Method</th>
                     <th>Sample Size</th>
                     <th>Status</th>
-                    <th>Doctors</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -140,13 +140,22 @@ function OrganizerHome() {
                         </span>
                       </td>
                       <td>
-                        <Link
-                          to={`/organizer/studies/${study.id}/invites`}
-                          className="btn-secondary"
-                          style={{ textDecoration: 'none', fontSize: '12px', padding: '4px 10px' }}
-                        >
-                          Invite
-                        </Link>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <Link
+                            to={`/organizer/studies/${study.id}/home`}
+                            className="btn-primary"
+                            style={{ textDecoration: 'none', fontSize: '12px', padding: '4px 10px' }}
+                          >
+                            View Study
+                          </Link>
+                          <Link
+                            to={`/organizer/studies/${study.id}/invites`}
+                            className="btn-secondary"
+                            style={{ textDecoration: 'none', fontSize: '12px', padding: '4px 10px' }}
+                          >
+                            Invite
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

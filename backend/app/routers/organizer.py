@@ -29,6 +29,9 @@ from ..schemas import (
     OrganizerInfo,
     StudyCreate,
     StudyOut,
+    StudyUpdate,
+    TreatmentArmCreate,
+    TreatmentArmOut,
 )
 
 router = APIRouter(prefix="/organizer", tags=["organizer"])
@@ -118,9 +121,8 @@ def create_study(
         target_sample_size=payload.target_sample_size,
         randomization_method=payload.randomization_method,
         random_seed=None,
-        block_size_rules=payload.block_size_rules.strip()
-        if payload.block_size_rules
-        else None,
+        block_size_min=payload.block_size_min,
+        block_size_max=payload.block_size_max,
         emergency_unblinding_allowed=payload.emergency_unblinding_allowed,
         status="Draft",
     )
@@ -169,6 +171,52 @@ def get_study(
 ):
     return get_study_for_organizer(study_id, current_organizer.id, db)
 
+
+@router.patch("/studies/{study_id}", response_model=StudyOut)
+def update_study(
+    study_id: int,
+    payload: StudyUpdate,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    study = get_study_for_organizer(study_id, current_organizer.id, db)
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(study, field, value)
+    db.commit()
+    db.refresh(study)
+    audit("study.updated", study_id=study_id, organizer=current_organizer.username)
+    return study
+
+
+@router.post("/studies/{study_id}/arms", response_model=list[TreatmentArmOut], status_code=201)
+def set_treatment_arms(
+    study_id: int,
+    payload: list[TreatmentArmCreate],
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    study = get_study_for_organizer(study_id, current_organizer.id, db)
+
+    # Replace all existing arms
+    db.query(TreatmentArm).filter(TreatmentArm.study_id == study.id).delete()
+
+    new_arms = []
+    for arm_data in payload:
+        arm = TreatmentArm(
+            study_id=study.id,
+            name=arm_data.name.strip(),
+            short_code=arm_data.short_code.strip(),
+            allocation_ratio=arm_data.allocation_ratio,
+            description=arm_data.description.strip() if arm_data.description else None,
+        )
+        db.add(arm)
+        new_arms.append(arm)
+
+    db.commit()
+    for arm in new_arms:
+        db.refresh(arm)
+    audit("study.arms.updated", study_id=study_id, count=len(new_arms), organizer=current_organizer.username)
+    return new_arms
 
 @router.get("/studies/{study_id}/invitations", response_model=list[InvitationOut])
 def list_invitations(

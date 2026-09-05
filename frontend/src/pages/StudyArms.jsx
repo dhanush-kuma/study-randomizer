@@ -1,0 +1,245 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { apiFetch } from '../api'
+import Header from '../components/Header'
+
+function StudyArms() {
+  const { studyId } = useParams()
+  const navigate = useNavigate()
+  const [study, setStudy] = useState(null)
+  const [arms, setArms] = useState([
+    { name: 'Arm A', short_code: 'ARM_A', allocation_ratio: 1, description: '' },
+    { name: 'Arm B', short_code: 'ARM_B', allocation_ratio: 1, description: '' },
+  ])
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    apiFetch(`/organizer/studies/${studyId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setStudy(data)
+          if (data.treatment_arms && data.treatment_arms.length > 0) {
+            setArms(
+              data.treatment_arms.map((arm) => ({
+                name: arm.name,
+                short_code: arm.short_code,
+                allocation_ratio: arm.allocation_ratio,
+                description: arm.description ?? '',
+              }))
+            )
+          }
+        }
+      })
+      .catch(() => navigate('/organizer/home', { replace: true }))
+  }, [studyId, navigate])
+
+  function handleArmChange(index, field, value) {
+    setArms((prev) =>
+      prev.map((arm, i) => (i === index ? { ...arm, [field]: value } : arm))
+    )
+  }
+
+  function handleAddArm() {
+    const nextChar = String.fromCharCode(65 + arms.length)
+    setArms((prev) => [
+      ...prev,
+      {
+        name: `Arm ${nextChar}`,
+        short_code: `ARM_${nextChar}`,
+        allocation_ratio: 1,
+        description: '',
+      },
+    ])
+  }
+
+  function handleRemoveArm(index) {
+    if (arms.length <= 1) return
+    setArms((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+
+    for (let i = 0; i < arms.length; i++) {
+      const arm = arms[i]
+      if (!arm.name.trim() || !arm.short_code.trim()) {
+        setError(`Treatment Arm #${i + 1} requires a valid Name and Short Code.`)
+        return
+      }
+      if (parseInt(arm.allocation_ratio, 10) < 1) {
+        setError(`Treatment Arm #${i + 1} allocation ratio must be at least 1.`)
+        return
+      }
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await apiFetch(`/organizer/studies/${studyId}/arms`, {
+        method: 'POST',
+        json: arms.map((arm) => ({
+          name: arm.name.trim(),
+          short_code: arm.short_code.trim(),
+          allocation_ratio: parseInt(arm.allocation_ratio, 10) || 1,
+          description: arm.description.trim() || null,
+        })),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.detail || 'Failed to save treatment arms.')
+        return
+      }
+
+      navigate(`/organizer/studies/${studyId}/home`, {
+        state: { successMsg: 'Treatment arms saved successfully.' },
+      })
+    } catch {
+      setError('Could not connect to backend.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <Header />
+      <main className="app">
+        <div className="page-header">
+          <Link to={`/organizer/studies/${studyId}/home`} className="back-link">
+            ← Back to Study
+          </Link>
+          <h1>{study ? study.title : 'Loading…'} — Treatment Arms</h1>
+        </div>
+
+        {!study ? (
+          <p className="loading">Loading study…</p>
+        ) : (
+          <div className="study-form-card">
+            <div className="setup-card__header">
+              <span className="setup-badge">Treatment Arms</span>
+              <h2 style={{ marginTop: '8px' }}>Configure Treatment Arms</h2>
+              <p>Define the arms of the trial and their allocation ratios.</p>
+            </div>
+
+            <form className="setup-form" onSubmit={handleSubmit} noValidate>
+              {error && <p className="error">{error}</p>}
+
+              <div className="arms-section" style={{ borderTop: 'none', paddingTop: 0 }}>
+                <div className="section-header" style={{ marginBottom: '12px' }}>
+                  <h3 className="section-title" style={{ fontSize: '15px' }}>
+                    Arms
+                  </h3>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleAddArm}
+                    style={{ fontSize: '12px', padding: '4px 10px' }}
+                  >
+                    + Add Arm
+                  </button>
+                </div>
+
+                <div className="arms-list">
+                  {arms.map((arm, index) => (
+                    <div key={index} className="arm-card">
+                      <div className="arm-card__header">
+                        <span className="arm-number">Arm #{index + 1}</span>
+                        {arms.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn-danger"
+                            onClick={() => handleRemoveArm(index)}
+                            title="Remove this treatment arm"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="arm-grid">
+                        <div className="field">
+                          <label htmlFor={`arm-name-${index}`}>Name / Label *</label>
+                          <input
+                            id={`arm-name-${index}`}
+                            type="text"
+                            value={arm.name}
+                            onChange={(e) => handleArmChange(index, 'name', e.target.value)}
+                            placeholder="e.g. Drug A (100mg Capsule)"
+                            required
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label htmlFor={`arm-code-${index}`}>Short Code *</label>
+                          <input
+                            id={`arm-code-${index}`}
+                            type="text"
+                            value={arm.short_code}
+                            onChange={(e) => handleArmChange(index, 'short_code', e.target.value)}
+                            placeholder="e.g. ARM_A"
+                            required
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label htmlFor={`arm-ratio-${index}`}>Allocation Ratio *</label>
+                          <input
+                            id={`arm-ratio-${index}`}
+                            type="number"
+                            min="1"
+                            value={arm.allocation_ratio}
+                            onChange={(e) =>
+                              handleArmChange(index, 'allocation_ratio', e.target.value)
+                            }
+                            placeholder="1"
+                            required
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label htmlFor={`arm-desc-${index}`}>Description / Notes</label>
+                          <input
+                            id={`arm-desc-${index}`}
+                            type="text"
+                            value={arm.description}
+                            onChange={(e) =>
+                              handleArmChange(index, 'description', e.target.value)
+                            }
+                            placeholder="Optional dosing instructions or notes"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-actions" style={{ marginTop: '24px' }}>
+                <button
+                  id="btn-save-arms"
+                  type="submit"
+                  className="btn-primary"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Saving…' : 'Save Treatment Arms'}
+                </button>
+                <Link
+                  to={`/organizer/studies/${studyId}/home`}
+                  className="btn-secondary"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Cancel
+                </Link>
+              </div>
+            </form>
+          </div>
+        )}
+      </main>
+    </>
+  )
+}
+
+export default StudyArms

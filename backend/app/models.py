@@ -46,7 +46,8 @@ class Study(Base):
         String(50), nullable=False, default="Permuted Block"
     )
     random_seed: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    block_size_rules: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    block_size_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    block_size_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     emergency_unblinding_allowed: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True
     )

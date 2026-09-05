@@ -10,6 +10,10 @@ import OrganizerLogin from './pages/OrganizerLogin'
 import OrganizerHome from './pages/OrganizerHome'
 import CreateStudy from './pages/CreateStudy'
 import StudyInvites from './pages/StudyInvites'
+import StudyHome from './pages/StudyHome'
+import StudyArms from './pages/StudyArms'
+import StudyRandomization from './pages/StudyRandomization'
+import UploadCSV from './pages/UploadCSV'
 import DoctorGuard from './pages/DoctorGuard'
 import DoctorLogin from './pages/DoctorLogin'
 import DoctorSignup from './pages/DoctorSignup'
@@ -28,6 +32,10 @@ function App() {
       <Route path="/organizer/login" element={<OrganizerLogin />} />
       <Route path="/organizer/home" element={<OrganizerHome />} />
       <Route path="/organizer/studies/new" element={<CreateStudy />} />
+      <Route path="/organizer/studies/:studyId/home" element={<StudyHome />} />
+      <Route path="/organizer/studies/:studyId/arms" element={<StudyArms />} />
+      <Route path="/organizer/studies/:studyId/randomization" element={<StudyRandomization />} />
+      <Route path="/organizer/studies/:studyId/upload-csv" element={<UploadCSV />} />
       <Route path="/organizer/studies/:studyId/invites" element={<StudyInvites />} />
 
       <Route path="/doctor" element={<DoctorGuard />} />
