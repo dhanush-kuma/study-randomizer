@@ -11,6 +11,8 @@ from ..core.investigator_invite import (
     create_and_send_investigator_invite,
     parse_investigator_csv,
 )
+from ..core.investigators import generate_temp_password
+from ..core.email import send_investigator_credentials
 from ..core.rate_limit import limiter
 from ..core.security import (
     ROLE_ORGANIZER,
@@ -516,5 +518,68 @@ def restore_investigator(
         investigator_id=investigator.id,
         study_id=study_id,
         organizer=current_organizer.username,
+    )
+    return investigator
+
+
+@router.post(
+    "/studies/{study_id}/investigators/{investigator_id}/reset-password",
+    response_model=InvestigatorOut,
+)
+@limiter.limit("10/hour")
+def reset_investigator_password(
+    request: Request,
+    study_id: int,
+    investigator_id: int,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    """
+    Generate a new random password for the investigator, email it to them,
+    and reset their status to 'inactive' (they must log in again).
+    """
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
+    investigator = (
+        db.query(Investigator)
+        .filter(Investigator.id == investigator_id, Investigator.study_id == study_id)
+        .first()
+    )
+    if not investigator:
+        raise HTTPException(status_code=404, detail="Investigator not found.")
+    if investigator.status == "revoked":
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot reset password for a revoked investigator. Restore their access first.",
+        )
+
+    new_password = generate_temp_password()
+    investigator.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    # Reset to inactive so the next login is their first effective login
+    investigator.status = "inactive"
+    db.flush()
+
+    try:
+        send_investigator_credentials(
+            to_email=investigator.email,
+            name=investigator.name,
+            study_title=study.title,
+            protocol_code=study.protocol_code,
+            username=investigator.username,
+            temp_password=new_password,
+        )
+    except RuntimeError as exc:
+        db.rollback()
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    db.commit()
+    db.refresh(investigator)
+    audit(
+        "investigator.password_reset",
+        investigator_id=investigator.id,
+        study_id=study_id,
+        email=investigator.email,
+        organizer=current_organizer.username,
+        ip=request.client.host if request.client else None,
+        email_configured=email_is_configured(),
     )
     return investigator

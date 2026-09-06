@@ -176,6 +176,34 @@ function StudyInvestigators() {
     }
   }
 
+  async function handleResetPassword(investigatorId, email) {
+    setActionLoading(investigatorId)
+    setSuccessMsg(null)
+    setError(null)
+    try {
+      const res = await apiFetch(
+        `/organizer/studies/${studyId}/investigators/${investigatorId}/reset-password`,
+        { method: 'POST' }
+      )
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.detail || `Failed to reset password (${res.status}).`)
+        setPendingAction(null)
+        return
+      }
+      setPendingAction(null)
+      setSuccessMsg(`New password generated and sent to ${email}.`)
+      loadInvestigators()
+    } catch (err) {
+      console.error('handleResetPassword error:', err)
+      setError('Password reset failed. Please try again.')
+      setPendingAction(null)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+
   function investigatorLabel(inv) {
     return inv.name || inv.username
   }
@@ -350,6 +378,8 @@ function StudyInvestigators() {
                               <p className="action-confirm__text">
                                 {pendingAction.type === 'revoke'
                                   ? `Revoke access for ${pendingAction.label}? They will no longer be able to log in.`
+                                  : pendingAction.type === 'reset'
+                                  ? `Reset password for ${pendingAction.label}? A new password will be emailed to them.`
                                   : `Restore access for ${pendingAction.label}? They can log in again with their existing credentials.`}
                               </p>
                               <div className="action-confirm__buttons">
@@ -361,14 +391,18 @@ function StudyInvestigators() {
                                   onClick={() =>
                                     pendingAction.type === 'revoke'
                                       ? handleRevoke(inv.id)
+                                      : pendingAction.type === 'reset'
+                                      ? handleResetPassword(inv.id, inv.email)
                                       : handleRestore(inv.id)
                                   }
                                 >
                                   {actionLoading === inv.id
                                     ? 'Saving…'
                                     : pendingAction.type === 'revoke'
-                                      ? 'Yes, revoke'
-                                      : 'Yes, restore'}
+                                    ? 'Yes, revoke'
+                                    : pendingAction.type === 'reset'
+                                    ? 'Yes, reset'
+                                    : 'Yes, restore'}
                                 </button>
                                 <button
                                   type="button"
@@ -397,20 +431,36 @@ function StudyInvestigators() {
                               Restore access
                             </button>
                           ) : (
-                            <button
-                              className="btn-secondary"
-                              style={{ fontSize: '12px', padding: '4px 10px' }}
-                              disabled={actionLoading === inv.id}
-                              onClick={() =>
-                                setPendingAction({
-                                  type: 'revoke',
-                                  id: inv.id,
-                                  label: investigatorLabel(inv),
-                                })
-                              }
-                            >
-                              Revoke
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              <button
+                                className="btn-secondary"
+                                style={{ fontSize: '12px', padding: '4px 10px' }}
+                                disabled={actionLoading === inv.id}
+                                onClick={() =>
+                                  setPendingAction({
+                                    type: 'reset',
+                                    id: inv.id,
+                                    label: investigatorLabel(inv),
+                                  })
+                                }
+                              >
+                                Reset password
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                style={{ fontSize: '12px', padding: '4px 10px' }}
+                                disabled={actionLoading === inv.id}
+                                onClick={() =>
+                                  setPendingAction({
+                                    type: 'revoke',
+                                    id: inv.id,
+                                    label: investigatorLabel(inv),
+                                  })
+                                }
+                              >
+                                Revoke
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
