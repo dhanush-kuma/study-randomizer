@@ -128,7 +128,7 @@ class RandomizationRecord(Base):
         Integer, ForeignKey("studies.id", ondelete="CASCADE"), nullable=False
     )
     sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    kit_code: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    kit_code: Mapped[str] = mapped_column(String(100), nullable=False)
     treatment_name: Mapped[str] = mapped_column(String(255), nullable=False)
     assigned_patient_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     assigned_by_investigator_id: Mapped[Optional[int]] = mapped_column(

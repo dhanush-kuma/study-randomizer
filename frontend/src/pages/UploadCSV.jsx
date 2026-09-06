@@ -4,19 +4,19 @@ import { apiFetch, apiUpload } from '../api'
 import Header from '../components/Header'
 
 // --- Sample CSV content (embedded so no static file config needed) ---
-const SAMPLE_CSV_CONTENT = `sequence_number,kit_code,short_code,treatment_arm
-1,KIT-001,DA,Drug A
-2,KIT-002,PBO,Placebo
-3,KIT-003,PBO,Placebo
-4,KIT-004,DA,Drug A
-5,KIT-005,DA,Drug A
-6,KIT-006,PBO,Placebo
-7,KIT-007,PBO,Placebo
-8,KIT-008,DA,Drug A
-9,KIT-009,DA,Drug A
-10,KIT-010,PBO,Placebo
-11,KIT-011,PBO,Placebo
-12,KIT-012,DA,Drug A
+const SAMPLE_CSV_CONTENT = `sequence_number,kit_code,treatment_arm
+1,KIT-DA,Drug A
+2,KIT-PBO,Placebo
+3,KIT-PBO,Placebo
+4,KIT-DA,Drug A
+5,KIT-DA,Drug A
+6,KIT-PBO,Placebo
+7,KIT-PBO,Placebo
+8,KIT-DA,Drug A
+9,KIT-DA,Drug A
+10,KIT-PBO,Placebo
+11,KIT-PBO,Placebo
+12,KIT-DA,Drug A
 `
 
 function downloadSampleCsv() {
@@ -157,9 +157,9 @@ function UploadCSV() {
               <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <ul className="csv-instructions">
                   <li>File must be <strong>.csv</strong> with a header row as the first line.</li>
-                  <li>Required columns: <code>sequence_number</code>, <code>kit_code</code>, <code>short_code</code></li>
-                  <li>Optional column: <code>treatment_arm</code> (display name — falls back to short_code)</li>
-                  <li><code>short_code</code> must match a treatment arm defined on this study (if any arms exist).</li>
+                  <li>Required columns: <code>sequence_number</code>, <code>kit_code</code>, <code>treatment_arm</code></li>
+                  <li><code>kit_code</code> identifies the treatment kit — the same value repeats for every row in the same arm (e.g. <code>KIT-DA</code> for all Drug A rows).</li>
+                  <li><code>treatment_arm</code> is the display name of the arm (e.g. <em>Drug A</em>, <em>Placebo</em>).</li>
                   <li>Re-uploading <strong>replaces</strong> all existing records for this study.</li>
                   <li>On success, study status is set to <strong>Active</strong>.</li>
                 </ul>

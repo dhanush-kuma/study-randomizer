@@ -618,27 +618,6 @@ async def upload_randomization_csv(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # Build a short_code → treatment arm name map from the study's arms
-    arm_map: dict[str, str] = {
-        arm.short_code: arm.name for arm in study.treatment_arms
-    }
-
-    # Validate every short_code in the CSV against study arms (only if arms exist)
-    if arm_map:
-        unknown_codes = {
-            row["short_code"]
-            for row in parsed_rows
-            if row["short_code"] not in arm_map
-        }
-        if unknown_codes:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    f"Unknown short_code(s) in CSV: {', '.join(sorted(unknown_codes))}. "
-                    f"This study's arms are: {', '.join(sorted(arm_map.keys()))}."
-                ),
-            )
-
     # Replace all existing randomization records for this study
     db.query(RandomizationRecord).filter(
         RandomizationRecord.study_id == study_id
@@ -646,13 +625,11 @@ async def upload_randomization_csv(
 
     new_records: list[RandomizationRecord] = []
     for row in parsed_rows:
-        # Use the arm's canonical name if available, else the CSV column
-        treatment_name = arm_map.get(row["short_code"]) or row["treatment_name"]
         record = RandomizationRecord(
             study_id=study_id,
             sequence_number=row["sequence_number"],
             kit_code=row["kit_code"],
-            treatment_name=treatment_name,
+            treatment_name=row["treatment_name"],
         )
         db.add(record)
         new_records.append(record)
@@ -666,8 +643,8 @@ async def upload_randomization_csv(
     except Exception:
         db.rollback()
         raise HTTPException(
-            status_code=409,
-            detail="A kit_code in the CSV conflicts with an existing record in another study.",
+            status_code=500,
+            detail="An unexpected error occurred while saving the randomization records.",
         )
 
     for record in new_records:

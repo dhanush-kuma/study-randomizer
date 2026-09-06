@@ -3,12 +3,13 @@ Parse a pre-randomized sequence CSV and return validated rows.
 
 Expected columns (case-insensitive, leading/trailing whitespace stripped):
     sequence_number  – positive integer, unique within the file
-    kit_code         – non-empty string, globally unique
-    short_code       – treatment arm short code (must match a study arm)
-    treatment_arm    – treatment arm name (informational; stored as-is)
+    kit_code         – the treatment kit identifier (same value repeats for
+                       all rows belonging to the same treatment arm, e.g.
+                       "KIT-DA" for every Drug A row)
+    treatment_arm    – display name of the treatment arm (e.g. "Drug A")
 
-The `treatment_arm` column is optional.  If absent, `treatment_name` is set to
-the short_code value so something human-readable is still stored.
+Arm validation is intentionally NOT performed here; the caller decides
+whether to cross-check against study arms.
 """
 
 from __future__ import annotations
@@ -18,13 +19,12 @@ import io
 from typing import TypedDict
 
 
-REQUIRED_COLUMNS = {"sequence_number", "kit_code", "short_code"}
+REQUIRED_COLUMNS = {"sequence_number", "kit_code", "treatment_arm"}
 
 
 class ParsedRow(TypedDict):
     sequence_number: int
     kit_code: str
-    short_code: str
     treatment_name: str
 
 
@@ -49,12 +49,11 @@ def parse_randomization_csv(content: bytes) -> list[ParsedRow]:
     if missing:
         raise ValueError(
             f"CSV is missing required column(s): {', '.join(sorted(missing))}. "
-            f"Expected: sequence_number, kit_code, short_code (and optionally treatment_arm)."
+            f"Expected: sequence_number, kit_code, treatment_arm."
         )
 
     rows: list[ParsedRow] = []
     seen_sequence: set[int] = set()
-    seen_kit_codes: set[str] = set()
 
     for line_num, raw_row in enumerate(reader, start=2):  # line 1 = header
         # Normalise keys
@@ -84,25 +83,16 @@ def parse_randomization_csv(content: bytes) -> list[ParsedRow]:
         kit_code = row.get("kit_code", "")
         if not kit_code:
             raise ValueError(f"Row {line_num}: 'kit_code' is empty.")
-        if kit_code in seen_kit_codes:
-            raise ValueError(
-                f"Row {line_num}: duplicate 'kit_code' '{kit_code}' in this file."
-            )
-        seen_kit_codes.add(kit_code)
 
-        # --- short_code ---
-        short_code = row.get("short_code", "")
-        if not short_code:
-            raise ValueError(f"Row {line_num}: 'short_code' is empty.")
-
-        # --- treatment_arm (optional display name) ---
-        treatment_name = row.get("treatment_arm", "") or short_code
+        # --- treatment_arm ---
+        treatment_name = row.get("treatment_arm", "")
+        if not treatment_name:
+            raise ValueError(f"Row {line_num}: 'treatment_arm' is empty.")
 
         rows.append(
             ParsedRow(
                 sequence_number=seq,
                 kit_code=kit_code,
-                short_code=short_code,
                 treatment_name=treatment_name,
             )
         )
