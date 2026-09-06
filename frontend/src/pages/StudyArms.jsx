@@ -125,6 +125,13 @@ function StudyArms() {
               <p>Define the arms of the trial and their allocation ratios.</p>
             </div>
 
+            {study.status === 'Active' && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px 16px', margin: '16px 24px 0', color: '#991b1b', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🔒</span>
+                <span><strong>Study is Active and locked.</strong> Treatment arms cannot be added, edited, or deleted.</span>
+              </div>
+            )}
+
             <form className="setup-form" onSubmit={handleSubmit} noValidate>
               {error && <p className="error">{error}</p>}
 
@@ -133,14 +140,16 @@ function StudyArms() {
                   <h3 className="section-title" style={{ fontSize: '15px' }}>
                     Arms
                   </h3>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleAddArm}
-                    style={{ fontSize: '12px', padding: '4px 10px' }}
-                  >
-                    + Add Arm
-                  </button>
+                  {study.status !== 'Active' && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleAddArm}
+                      style={{ fontSize: '12px', padding: '4px 10px' }}
+                    >
+                      + Add Arm
+                    </button>
+                  )}
                 </div>
 
                 <div className="arms-list">
@@ -153,14 +162,16 @@ function StudyArms() {
                       <div key={index} className="arm-card">
                         <div className="arm-card__header">
                           <span className="arm-number">Arm #{index + 1}</span>
-                          <button
-                            type="button"
-                            className="btn-danger"
-                            onClick={() => handleRemoveArm(index)}
-                            title="Remove this treatment arm"
-                          >
-                            Remove
-                          </button>
+                          {study.status !== 'Active' && (
+                            <button
+                              type="button"
+                              className="btn-danger"
+                              onClick={() => handleRemoveArm(index)}
+                              title="Remove this treatment arm"
+                            >
+                              Remove
+                            </button>
+                          )}
                         </div>
 
                         <div className="arm-grid">
@@ -170,6 +181,7 @@ function StudyArms() {
                               id={`arm-name-${index}`}
                               type="text"
                               value={arm.name}
+                              disabled={study.status === 'Active'}
                               onChange={(e) => handleArmChange(index, 'name', e.target.value)}
                               placeholder="e.g. Drug A (100mg Capsule)"
                               required
@@ -182,6 +194,7 @@ function StudyArms() {
                               id={`arm-code-${index}`}
                               type="text"
                               value={arm.short_code}
+                              disabled={study.status === 'Active'}
                               onChange={(e) => handleArmChange(index, 'short_code', e.target.value)}
                               placeholder="e.g. ARM_A"
                               required
@@ -195,6 +208,7 @@ function StudyArms() {
                               type="number"
                               min="1"
                               value={arm.allocation_ratio}
+                              disabled={study.status === 'Active'}
                               onChange={(e) =>
                                 handleArmChange(index, 'allocation_ratio', e.target.value)
                               }
@@ -209,6 +223,7 @@ function StudyArms() {
                               id={`arm-desc-${index}`}
                               type="text"
                               value={arm.description}
+                              disabled={study.status === 'Active'}
                               onChange={(e) =>
                                 handleArmChange(index, 'description', e.target.value)
                               }
@@ -223,14 +238,16 @@ function StudyArms() {
               </div>
 
               <div className="form-actions" style={{ marginTop: '24px' }}>
-                <button
-                  id="btn-save-arms"
-                  type="submit"
-                  className="btn-primary"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Saving…' : 'Save Treatment Arms'}
-                </button>
+                {study.status !== 'Active' && (
+                  <button
+                    id="btn-save-arms"
+                    type="submit"
+                    className="btn-primary"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Saving…' : 'Save Treatment Arms'}
+                  </button>
+                )}
                 <Link
                   to={`/organizer/studies/${studyId}/home`}
                   className="btn-secondary"

@@ -1,7 +1,10 @@
+import math
+from typing import Optional
 import bcrypt
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, Response, UploadFile
+from sqlalchemy import String, cast, or_
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ..config import clear_auth_cookie, clear_csrf_cookie, set_auth_cookie, set_csrf_cookie
 from ..core.audit import audit
@@ -33,6 +36,7 @@ from ..schemas import (
     LoginResponse,
     MessageResponse,
     OrganizerInfo,
+    PaginatedRandomizationRecords,
     RandomizationRecordOut,
     StudyCreate,
     StudyOut,
@@ -218,6 +222,15 @@ def update_study(
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
     study = _get_study_for_organizer(study_id, current_organizer.id, db)
+
+    if study.status == "Active":
+        locked_fields = {"randomization_method", "block_size_min", "block_size_max", "target_sample_size"}
+        if any(k in payload.model_dump(exclude_unset=True) for k in locked_fields):
+            raise HTTPException(
+                status_code=400,
+                detail="Study is Active and locked. Randomization settings cannot be modified.",
+            )
+
     updates = payload.model_dump(exclude_unset=True)
     if "protocol_code" in updates and updates["protocol_code"] is not None:
         _ensure_protocol_code_available(
@@ -250,6 +263,12 @@ def set_treatment_arms(
     current_organizer: Organizer = Depends(get_current_organizer),
 ):
     study = _get_study_for_organizer(study_id, current_organizer.id, db)
+
+    if study.status == "Active":
+        raise HTTPException(
+            status_code=400,
+            detail="Study is Active and locked. Treatment arms cannot be modified.",
+        )
 
     # Replace all existing arms
     db.query(TreatmentArm).filter(TreatmentArm.study_id == study.id).delete()
@@ -612,6 +631,12 @@ async def upload_randomization_csv(
 
     study = _get_study_for_organizer(study_id, current_organizer.id, db)
 
+    if study.status == "Active":
+        raise HTTPException(
+            status_code=400,
+            detail="Study is Active and locked. Sequence records have already been finalized.",
+        )
+
     content = await file.read()
     try:
         parsed_rows = parse_randomization_csv(content)
@@ -662,4 +687,93 @@ async def upload_randomization_csv(
         inserted_count=len(new_records),
         study_status=study.status,
         records=[RandomizationRecordOut.model_validate(r) for r in new_records],
+    )
+
+
+@router.get(
+    "/studies/{study_id}/randomization-records",
+    response_model=PaginatedRandomizationRecords,
+)
+def get_randomization_records(
+    study_id: int,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    search: Optional[str] = Query(default=None),
+    status_filter: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    """
+    Get paginated randomization records for a study.
+    Supports filtering by search query (kit_code, treatment_name, assigned_patient_id, sequence_number)
+    and status_filter ('assigned' | 'unassigned').
+    """
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
+
+    base_query = db.query(RandomizationRecord).filter(
+        RandomizationRecord.study_id == study.id
+    )
+
+    query = base_query
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                RandomizationRecord.kit_code.ilike(s),
+                RandomizationRecord.treatment_name.ilike(s),
+                RandomizationRecord.assigned_patient_id.ilike(s),
+                cast(RandomizationRecord.sequence_number, String).ilike(s),
+            )
+        )
+
+    if status_filter == "assigned":
+        query = query.filter(RandomizationRecord.assigned_patient_id.isnot(None))
+    elif status_filter == "unassigned":
+        query = query.filter(RandomizationRecord.assigned_patient_id.is_(None))
+
+    total_count = query.count()
+
+    assigned_count = base_query.filter(
+        RandomizationRecord.assigned_patient_id.isnot(None)
+    ).count()
+    unassigned_count = base_query.filter(
+        RandomizationRecord.assigned_patient_id.is_(None)
+    ).count()
+
+    offset = (page - 1) * per_page
+    records = (
+        query.options(joinedload(RandomizationRecord.assigned_by_investigator))
+        .order_by(RandomizationRecord.sequence_number.asc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
+    record_outs = []
+    for r in records:
+        inv_username = r.assigned_by_investigator.username if r.assigned_by_investigator else None
+        record_outs.append(
+            RandomizationRecordOut(
+                id=r.id,
+                study_id=r.study_id,
+                sequence_number=r.sequence_number,
+                kit_code=r.kit_code,
+                treatment_name=r.treatment_name,
+                assigned_patient_id=r.assigned_patient_id,
+                assigned_by_investigator_id=r.assigned_by_investigator_id,
+                assigned_by_investigator_username=inv_username,
+                assigned_at=r.assigned_at,
+            )
+        )
+
+    total_pages = math.ceil(total_count / per_page) if total_count > 0 else 1
+
+    return PaginatedRandomizationRecords(
+        total_count=total_count,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        assigned_count=assigned_count,
+        unassigned_count=unassigned_count,
+        records=record_outs,
     )

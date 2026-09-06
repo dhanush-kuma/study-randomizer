@@ -103,6 +103,13 @@ function StudyRandomization() {
               <p>Configure the method, block sizing, and target sample size for this trial.</p>
             </div>
 
+            {study.status === 'Active' && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px 16px', margin: '16px 24px 0', color: '#991b1b', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🔒</span>
+                <span><strong>Study is Active and locked.</strong> Randomization settings cannot be modified.</span>
+              </div>
+            )}
+
             <form className="setup-form" onSubmit={handleSubmit} noValidate>
               {error && <p className="error">{error}</p>}
 
@@ -114,6 +121,7 @@ function StudyRandomization() {
                     id="randomization-method"
                     className="select-input"
                     value={randomizationMethod}
+                    disabled={study.status === 'Active'}
                     onChange={(e) => setRandomizationMethod(e.target.value)}
                   >
                     <option value="Permuted Block">Permuted Block</option>
@@ -130,6 +138,7 @@ function StudyRandomization() {
                     type="number"
                     min="1"
                     value={targetSampleSize}
+                    disabled={study.status === 'Active'}
                     onChange={(e) => setTargetSampleSize(e.target.value)}
                     placeholder="e.g. 500"
                   />
@@ -143,6 +152,7 @@ function StudyRandomization() {
                     type="number"
                     min="1"
                     value={blockSizeMin}
+                    disabled={study.status === 'Active'}
                     onChange={(e) => setBlockSizeMin(e.target.value)}
                     placeholder="e.g. 4"
                   />
@@ -159,6 +169,7 @@ function StudyRandomization() {
                     type="number"
                     min="1"
                     value={blockSizeMax}
+                    disabled={study.status === 'Active'}
                     onChange={(e) => setBlockSizeMax(e.target.value)}
                     placeholder="e.g. 6"
                   />
@@ -169,14 +180,16 @@ function StudyRandomization() {
               </div>
 
               <div className="form-actions" style={{ marginTop: '24px' }}>
-                <button
-                  id="btn-save-randomization"
-                  type="submit"
-                  className="btn-primary"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Saving…' : 'Save Randomization Settings'}
-                </button>
+                {study.status !== 'Active' && (
+                  <button
+                    id="btn-save-randomization"
+                    type="submit"
+                    className="btn-primary"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Saving…' : 'Save Randomization Settings'}
+                  </button>
+                )}
                 <Link
                   to={`/organizer/studies/${studyId}/home`}
                   className="btn-secondary"

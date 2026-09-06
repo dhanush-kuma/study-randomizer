@@ -320,9 +320,21 @@ class RandomizationRecordOut(BaseModel):
     kit_code: str
     treatment_name: str
     assigned_patient_id: Optional[str] = None
+    assigned_by_investigator_id: Optional[int] = None
+    assigned_by_investigator_username: Optional[str] = None
     assigned_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedRandomizationRecords(BaseModel):
+    total_count: int
+    page: int
+    per_page: int
+    total_pages: int
+    assigned_count: int
+    unassigned_count: int
+    records: list[RandomizationRecordOut]
 
 
 class CsvUploadResponse(BaseModel):
