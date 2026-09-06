@@ -898,13 +898,10 @@ def generate_randomization(
         for arm in arms
     ]
 
-    kit_prefix = study.protocol_code.upper().replace(" ", "-")
-
     try:
         records_data, seed_used = generate_sequence(
             arms=arms_data,
             n=n,
-            kit_prefix=kit_prefix,
             method=method,
             block_size_min=block_min,
             block_size_max=block_max,

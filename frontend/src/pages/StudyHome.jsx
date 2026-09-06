@@ -99,14 +99,14 @@ function StudyHome() {
                   {' · '}
                   <span>{study.blinding_type}</span>
                   {study.status === 'Active' && (
-                    <span style={{ marginLeft: '12px', fontSize: '13px', color: '#166534', fontWeight: 600, background: '#f0fdf4', padding: '2px 8px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
-                      Setup Locked
+                    <span style={{ marginLeft: '12px', fontSize: '13px', color: '#555', fontWeight: 600 }}>
+                      [Setup Locked]
                     </span>
                   )}
                 </p>
 
                 {study.status === 'Draft' && (
-                  <span style={{ fontSize: '13px', color: '#854d0e', background: '#fef9c3', padding: '4px 10px', borderRadius: '4px', border: '1px solid #fef08a' }}>
+                  <span style={{ fontSize: '13px', color: '#555', fontStyle: 'italic' }}>
                     Draft Mode — Complete setup to activate study
                   </span>
                 )}
@@ -191,22 +191,22 @@ function StudyHome() {
                 {/* Stats Summary Cards */}
                 {recordsData && (
                   <div style={{ display: 'grid', gridTemplateColumns: `repeat(${recordsData.unblinded_count > 0 ? 4 : 3}, 1fr)`, gap: '16px', marginBottom: '24px' }}>
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px 20px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Sequence Records</div>
-                      <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>{recordsData.total_count}</div>
+                    <div className="status-card" style={{ maxWidth: 'none', margin: 0 }}>
+                      <div className="label">Total Sequence Records</div>
+                      <div style={{ fontSize: '24px', fontWeight: 600, color: '#1a1a2e', marginTop: '4px' }}>{recordsData.total_count}</div>
                     </div>
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px 20px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Assigned to Patients</div>
-                      <div style={{ fontSize: '28px', fontWeight: 700, color: '#166534', marginTop: '4px' }}>{recordsData.assigned_count}</div>
+                    <div className="status-card" style={{ maxWidth: 'none', margin: 0 }}>
+                      <div className="label">Assigned to Patients</div>
+                      <div style={{ fontSize: '24px', fontWeight: 600, color: '#1a1a2e', marginTop: '4px' }}>{recordsData.assigned_count}</div>
                     </div>
-                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px 20px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unassigned / Available</div>
-                      <div style={{ fontSize: '28px', fontWeight: 700, color: '#92400e', marginTop: '4px' }}>{recordsData.unassigned_count}</div>
+                    <div className="status-card" style={{ maxWidth: 'none', margin: 0 }}>
+                      <div className="label">Unassigned / Available</div>
+                      <div style={{ fontSize: '24px', fontWeight: 600, color: '#1a1a2e', marginTop: '4px' }}>{recordsData.unassigned_count}</div>
                     </div>
                     {recordsData.unblinded_count > 0 && (
-                      <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px 20px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Emergency Unblinded</div>
-                        <div style={{ fontSize: '28px', fontWeight: 700, color: '#991b1b', marginTop: '4px' }}>{recordsData.unblinded_count}</div>
+                      <div className="status-card" style={{ maxWidth: 'none', margin: 0, borderLeftColor: '#c0392b' }}>
+                        <div className="label">Emergency Unblinded</div>
+                        <div style={{ fontSize: '24px', fontWeight: 600, color: '#1a1a2e', marginTop: '4px' }}>{recordsData.unblinded_count}</div>
                       </div>
                     )}
                   </div>
@@ -214,27 +214,27 @@ function StudyHome() {
 
                 {/* Arm Breakdown Table */}
                 {recordsData && recordsData.arm_counts && recordsData.arm_counts.length > 0 && (
-                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '24px', overflow: 'hidden' }}>
-                    <div style={{ padding: '12px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', margin: 0 }}>Arm Allocation Breakdown</h3>
+                  <div style={{ marginBottom: '24px' }}>
+                    <div className="section-header" style={{ marginBottom: '8px' }}>
+                      <h3 className="section-title" style={{ fontSize: '15px' }}>Arm Allocation Breakdown</h3>
                     </div>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                    <div style={{ overflowX: 'auto', border: '1px solid #d0d0d0', borderRadius: '4px' }}>
+                      <table className="data-table" style={{ margin: 0 }}>
                         <thead>
                           <tr>
-                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Treatment Arm</th>
-                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Total Records</th>
-                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Assigned</th>
-                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Unassigned</th>
+                            <th>Treatment Arm</th>
+                            <th>Total Records</th>
+                            <th>Assigned</th>
+                            <th>Unassigned</th>
                           </tr>
                         </thead>
                         <tbody>
                           {recordsData.arm_counts.map((arm, idx) => (
-                            <tr key={idx} style={{ borderBottom: idx === recordsData.arm_counts.length - 1 ? 'none' : '1px solid #e2e8f0' }}>
-                              <td style={{ padding: '12px 20px', fontWeight: 500, color: '#0f172a' }}>{arm.treatment_name}</td>
-                              <td style={{ padding: '12px 20px', color: '#334155' }}>{arm.total}</td>
-                              <td style={{ padding: '12px 20px', color: '#15803d', fontWeight: 500 }}>{arm.assigned}</td>
-                              <td style={{ padding: '12px 20px', color: '#b45309', fontWeight: 500 }}>{arm.unassigned}</td>
+                            <tr key={idx}>
+                              <td style={{ fontWeight: 600 }}>{arm.treatment_name}</td>
+                              <td>{arm.total}</td>
+                              <td>{arm.assigned}</td>
+                              <td>{arm.unassigned}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -244,104 +244,38 @@ function StudyHome() {
                 )}
 
                 {/* Main Data Table Container */}
-                <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div style={{ border: '1px solid #d0d0d0', borderRadius: '4px', overflow: 'hidden', background: '#ffffff' }}>
                   {/* Table Header Controls */}
-                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #d0d0d0', background: '#f8f9fa', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#0f172a', margin: 0 }}>Randomized Sequence Records</h2>
-                      <span style={{ fontSize: '12px', color: '#64748b', background: '#e2e8f0', padding: '2px 8px', borderRadius: '12px', fontWeight: 500 }}>
-                        Active Study
-                      </span>
+                      <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a2e', margin: 0 }}>Randomized Sequence Records</h2>
+                      <span className="badge badge--active">Active Study</span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                       {/* Status Filter Tabs */}
-                      <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '6px', padding: '2px' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleFilterChange('')}
-                          style={{
-                            border: 'none',
-                            background: statusFilter === '' ? '#ffffff' : 'transparent',
-                            color: statusFilter === '' ? '#0f172a' : '#64748b',
-                            fontWeight: statusFilter === '' ? 600 : 500,
-                            padding: '4px 12px',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleFilterChange('assigned')}
-                          style={{
-                            border: 'none',
-                            background: statusFilter === 'assigned' ? '#ffffff' : 'transparent',
-                            color: statusFilter === 'assigned' ? '#166534' : '#64748b',
-                            fontWeight: statusFilter === 'assigned' ? 600 : 500,
-                            padding: '4px 12px',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          Assigned
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleFilterChange('unassigned')}
-                          style={{
-                            border: 'none',
-                            background: statusFilter === 'unassigned' ? '#ffffff' : 'transparent',
-                            color: statusFilter === 'unassigned' ? '#92400e' : '#64748b',
-                            fontWeight: statusFilter === 'unassigned' ? 600 : 500,
-                            padding: '4px 12px',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          Unassigned
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleFilterChange('blinded')}
-                          style={{
-                            border: 'none',
-                            background: statusFilter === 'blinded' ? '#ffffff' : 'transparent',
-                            color: statusFilter === 'blinded' ? '#0f172a' : '#64748b',
-                            fontWeight: statusFilter === 'blinded' ? 600 : 500,
-                            padding: '4px 12px',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          Blinded
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleFilterChange('unblinded')}
-                          style={{
-                            border: 'none',
-                            background: statusFilter === 'unblinded' ? '#ffffff' : 'transparent',
-                            color: statusFilter === 'unblinded' ? '#b91c1c' : '#64748b',
-                            fontWeight: statusFilter === 'unblinded' ? 600 : 500,
-                            padding: '4px 12px',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
-                          Unblinded
-                        </button>
+                      <div style={{ display: 'flex', background: '#e0e0e0', borderRadius: '4px', padding: '2px' }}>
+                        {['', 'assigned', 'unassigned', 'blinded', 'unblinded'].map((filter) => (
+                          <button
+                            key={filter}
+                            type="button"
+                            onClick={() => handleFilterChange(filter)}
+                            style={{
+                              border: 'none',
+                              background: statusFilter === filter ? '#ffffff' : 'transparent',
+                              color: statusFilter === filter ? '#1a1a2e' : '#555',
+                              fontWeight: statusFilter === filter ? 600 : 500,
+                              padding: '4px 12px',
+                              borderRadius: '2px',
+                              fontSize: '13px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                              textTransform: 'capitalize',
+                            }}
+                          >
+                            {filter || 'All'}
+                          </button>
+                        ))}
                       </div>
 
                       {/* Search Bar */}
@@ -350,11 +284,12 @@ function StudyHome() {
                         placeholder="Search kit, drug, patient..."
                         value={search}
                         onChange={handleSearchChange}
+                        className="field input"
                         style={{
-                          padding: '6px 12px',
+                          padding: '6px 10px',
                           fontSize: '13px',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '6px',
+                          border: '1px solid #b0b0b0',
+                          borderRadius: '3px',
                           width: '210px',
                           outline: 'none',
                         }}
@@ -364,15 +299,10 @@ function StudyHome() {
                       <select
                         value={perPage}
                         onChange={handlePerPageChange}
+                        className="select-input"
                         style={{
-                          padding: '6px 10px',
+                          padding: '5px 10px',
                           fontSize: '13px',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '6px',
-                          background: '#ffffff',
-                          color: '#334155',
-                          outline: 'none',
-                          cursor: 'pointer',
                         }}
                       >
                         <option value={10}>10 per page</option>
@@ -385,69 +315,55 @@ function StudyHome() {
 
                   {/* Data Table */}
                   {loadingRecords ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>
-                      Loading sequence records…
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#555', fontSize: '14px' }}>
+                      Loading sequence records...
                     </div>
                   ) : recordsData && recordsData.records.length > 0 ? (
                     <div style={{ overflowX: 'auto' }}>
-                      <table className="investigator-table" style={{ width: '100%', margin: 0, borderCollapse: 'collapse' }}>
+                      <table className="data-table" style={{ margin: 0 }}>
                         <thead>
-                          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', textAlign: 'left', fontSize: '12px', textTransform: 'uppercase', color: '#475569', letterSpacing: '0.5px' }}>
-                            <th style={{ padding: '12px 16px', width: '100px' }}>Seq #</th>
-                            <th style={{ padding: '12px 16px' }}>Kit Code</th>
-                            <th style={{ padding: '12px 16px' }}>Drug / Treatment Arm</th>
-                            <th style={{ padding: '12px 16px' }}>Blind Status</th>
-                            <th style={{ padding: '12px 16px' }}>Patient ID</th>
-                            <th style={{ padding: '12px 16px' }}>Investigator ID</th>
-                            <th style={{ padding: '12px 16px' }}>Assigned Date</th>
+                          <tr>
+                            <th style={{ width: '80px' }}>Seq #</th>
+                            <th>Kit Code</th>
+                            <th>Treatment Arm</th>
+                            <th>Blind Status</th>
+                            <th>Patient ID</th>
+                            <th>Investigator ID</th>
+                            <th>Assigned Date</th>
                           </tr>
                         </thead>
                         <tbody>
                           {recordsData.records.map((rec) => (
-                            <tr key={rec.id} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '14px', color: '#334155' }}>
-                              <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0f172a' }}>
-                                #{rec.sequence_number}
-                              </td>
-                              <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#1e293b' }}>
-                                {rec.kit_code}
-                              </td>
-                              <td style={{ padding: '12px 16px' }}>
-                                <span style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 500, padding: '3px 8px', borderRadius: '4px', fontSize: '13px' }}>
-                                  {rec.treatment_name}
-                                </span>
-                              </td>
-                              <td style={{ padding: '12px 16px' }}>
+                            <tr key={rec.id}>
+                              <td style={{ fontWeight: 600 }}>#{rec.sequence_number}</td>
+                              <td style={{ fontFamily: 'monospace' }}>{rec.kit_code}</td>
+                              <td>{rec.treatment_name}</td>
+                              <td>
                                 {rec.blind ? (
-                                  <span style={{ background: '#f1f5f9', color: '#475569', fontWeight: 600, padding: '3px 8px', borderRadius: '4px', fontSize: '12px', border: '1px solid #cbd5e1' }}>
-                                    Blinded
-                                  </span>
+                                  'Blinded'
                                 ) : (
-                                  <span style={{ background: '#fef2f2', color: '#b91c1c', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', fontSize: '12px', border: '1px solid #fecaca' }}>
+                                  <span className="badge badge--inactive" style={{ color: '#c0392b', borderColor: '#c0392b', background: 'transparent' }}>
                                     UNBLINDED
                                   </span>
                                 )}
                               </td>
-                              <td style={{ padding: '12px 16px' }}>
+                              <td>
                                 {rec.assigned_patient_id ? (
-                                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{rec.assigned_patient_id}</span>
+                                  <strong style={{ color: '#1a1a2e' }}>{rec.assigned_patient_id}</strong>
                                 ) : (
-                                  <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '13px' }}>— Unassigned —</span>
+                                  <span style={{ color: '#888', fontStyle: 'italic' }}>Unassigned</span>
                                 )}
                               </td>
-                              <td style={{ padding: '12px 16px' }}>
+                              <td>
                                 {rec.assigned_by_investigator_username ? (
-                                  <span style={{ fontWeight: 500, color: '#475569' }}>
-                                    {rec.assigned_by_investigator_username}
-                                  </span>
+                                  rec.assigned_by_investigator_username
                                 ) : rec.assigned_by_investigator_id ? (
-                                  <span style={{ fontWeight: 500, color: '#475569' }}>
-                                    ID #{rec.assigned_by_investigator_id}
-                                  </span>
+                                  `ID #${rec.assigned_by_investigator_id}`
                                 ) : (
-                                  <span style={{ color: '#94a3b8' }}>—</span>
+                                  <span style={{ color: '#888' }}>—</span>
                                 )}
                               </td>
-                              <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '13px' }}>
+                              <td style={{ color: '#555' }}>
                                 {rec.assigned_at ? new Date(rec.assigned_at).toLocaleString() : '—'}
                               </td>
                             </tr>
@@ -456,16 +372,16 @@ function StudyHome() {
                       </table>
                     </div>
                   ) : (
-                    <div style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
-                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 500 }}>No sequence records match your filter.</p>
-                      {search && <p style={{ fontSize: '13px', marginTop: '4px' }}>Try clearing your search query "{search}".</p>}
+                    <div style={{ padding: '40px 20px', textAlign: 'center', color: '#555' }}>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>No sequence records match your filter.</p>
+                      {search && <p style={{ fontSize: '13px', marginTop: '4px', color: '#888' }}>Try clearing your search query "{search}".</p>}
                     </div>
                   )}
 
                   {/* Pagination Footer */}
                   {recordsData && recordsData.total_pages > 1 && (
-                    <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ fontSize: '13px', color: '#64748b' }}>
+                    <div style={{ padding: '12px 16px', borderTop: '1px solid #d0d0d0', background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: '13px', color: '#555' }}>
                         Showing <strong>{(recordsData.page - 1) * recordsData.per_page + 1}</strong>–<strong>{Math.min(recordsData.page * recordsData.per_page, recordsData.total_count)}</strong> of <strong>{recordsData.total_count}</strong> records
                       </div>
 
@@ -475,11 +391,10 @@ function StudyHome() {
                           disabled={recordsData.page <= 1 || loadingRecords}
                           onClick={() => setPage((p) => Math.max(p - 1, 1))}
                           className="btn-secondary"
-                          style={{ padding: '4px 12px', fontSize: '13px' }}
                         >
-                          ‹ Previous
+                          Previous
                         </button>
-                        <span style={{ fontSize: '13px', color: '#475569', fontWeight: 500, padding: '0 4px' }}>
+                        <span style={{ fontSize: '13px', color: '#333', fontWeight: 600, padding: '0 4px' }}>
                           Page {recordsData.page} of {recordsData.total_pages}
                         </span>
                         <button
@@ -487,9 +402,8 @@ function StudyHome() {
                           disabled={recordsData.page >= recordsData.total_pages || loadingRecords}
                           onClick={() => setPage((p) => Math.min(p + 1, recordsData.total_pages))}
                           className="btn-secondary"
-                          style={{ padding: '4px 12px', fontSize: '13px' }}
                         >
-                          Next ›
+                          Next
                         </button>
                       </div>
                     </div>

@@ -21,21 +21,15 @@ import math
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _build_pool(arms: list[dict]) -> list[str]:
+def _build_pool(arms: list[dict]) -> list[dict]:
     """
     Expand arms into a flat pool according to their allocation_ratio.
-    E.g. [{"name": "Drug", "allocation_ratio": 2}, {"name": "Placebo", "allocation_ratio": 1}]
-    → ["Drug", "Drug", "Placebo"]
+    E.g. [{"name": "Drug", "short_code": "DRUG", "allocation_ratio": 2}, ...]
     """
-    pool: list[str] = []
+    pool: list[dict] = []
     for arm in arms:
-        pool.extend([arm["name"]] * int(arm["allocation_ratio"]))
+        pool.extend([arm] * int(arm["allocation_ratio"]))
     return pool
-
-
-def _kit_code(prefix: str, seq: int) -> str:
-    """Generate a zero-padded kit code.  e.g. TRL001-0042"""
-    return f"{prefix}-{seq:04d}"
 
 
 def _int_seed(seed) -> int | None:
@@ -55,7 +49,6 @@ def _int_seed(seed) -> int | None:
 def simple_random(
     arms: list[dict],
     n: int,
-    kit_prefix: str,
     seed=None,
 ) -> list[dict]:
     """
@@ -73,8 +66,8 @@ def simple_random(
         treatment = rng.choice(pool)
         records.append({
             "sequence_number": i,
-            "kit_code": _kit_code(kit_prefix, i),
-            "treatment_name": treatment,
+            "kit_code": treatment["short_code"],
+            "treatment_name": treatment["name"],
         })
     return records
 
@@ -86,7 +79,6 @@ def simple_random(
 def permuted_block(
     arms: list[dict],
     n: int,
-    kit_prefix: str,
     block_size_min: int,
     block_size_max: int | None = None,
     seed=None,
@@ -116,15 +108,15 @@ def permuted_block(
             # Fallback: nearest valid to min
             block_sizes = [_round_up_to_multiple(block_size_min, total_ratio)]
 
-    sequence: list[str] = []
+    sequence: list[dict] = []
 
     while len(sequence) < n:
         block_size = rng.choice(block_sizes)
         # Build one proportionally-balanced block
-        block: list[str] = []
+        block: list[dict] = []
         for arm in arms:
             copies = block_size * int(arm["allocation_ratio"]) // total_ratio
-            block.extend([arm["name"]] * copies)
+            block.extend([arm] * copies)
         rng.shuffle(block)
         sequence.extend(block)
 
@@ -135,8 +127,8 @@ def permuted_block(
     for i, treatment in enumerate(sequence, start=1):
         records.append({
             "sequence_number": i,
-            "kit_code": _kit_code(kit_prefix, i),
-            "treatment_name": treatment,
+            "kit_code": treatment["short_code"],
+            "treatment_name": treatment["name"],
         })
     return records
 
@@ -157,7 +149,6 @@ def _valid_block_sizes(min_size: int, max_size: int, multiple: int) -> list[int]
 def minimization_approx(
     arms: list[dict],
     n: int,
-    kit_prefix: str,
     seed=None,
     p_min: float = 0.80,
 ) -> list[dict]:
@@ -177,8 +168,9 @@ def minimization_approx(
     """
     rng = random.Random(_int_seed(seed))
     total_ratio = sum(int(arm["allocation_ratio"]) for arm in arms)
-    arm_names = [arm["name"] for arm in arms]
     arm_ratios = {arm["name"]: int(arm["allocation_ratio"]) for arm in arms}
+    arm_short_codes = {arm["name"]: arm["short_code"] for arm in arms}
+    arm_names = [arm["name"] for arm in arms]
 
     # Running counts
     counts = {name: 0 for name in arm_names}
@@ -192,7 +184,7 @@ def minimization_approx(
         if total_assigned == 0:
             # First record: pure weighted random
             pool = _build_pool(arms)
-            chosen = rng.choice(pool)
+            chosen = rng.choice(pool)["name"]
         else:
             # Calculate expected vs actual for each arm
             deficit = {}
@@ -231,7 +223,7 @@ def minimization_approx(
         counts[chosen] += 1
         records.append({
             "sequence_number": i,
-            "kit_code": _kit_code(kit_prefix, i),
+            "kit_code": arm_short_codes[chosen],
             "treatment_name": chosen,
         })
 
@@ -246,7 +238,6 @@ def generate_sequence(
     *,
     arms: list[dict],
     n: int,
-    kit_prefix: str,
     method: str,
     block_size_min: int | None = None,
     block_size_max: int | None = None,
@@ -266,20 +257,20 @@ def generate_sequence(
     resolved_seed = _int_seed(seed) if seed is not None else random.randint(0, 2**31)
 
     if method == "Simple Random":
-        records = simple_random(arms, n, kit_prefix, seed=resolved_seed)
+        records = simple_random(arms, n, seed=resolved_seed)
 
     elif method == "Permuted Block":
         if block_size_min is None:
             raise ValueError("Block size (min) is required for Permuted Block randomization.")
         records = permuted_block(
-            arms, n, kit_prefix,
+            arms, n,
             block_size_min=block_size_min,
             block_size_max=block_size_max,
             seed=resolved_seed,
         )
 
     elif method == "Minimization":
-        records = minimization_approx(arms, n, kit_prefix, seed=resolved_seed)
+        records = minimization_approx(arms, n, seed=resolved_seed)
 
     else:
         raise ValueError(f"Unknown randomization method: '{method}'")
