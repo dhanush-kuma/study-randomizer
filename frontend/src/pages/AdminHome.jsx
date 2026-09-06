@@ -108,7 +108,7 @@ function AdminHome() {
             <div className="status-card" style={{ marginBottom: '28px' }}>
               <div className="label">Session</div>
               <p className="message">
-                ✓ Logged in as <strong>{admin.username}</strong>
+                Logged in as <strong>{admin.username}</strong>
               </p>
             </div>
 

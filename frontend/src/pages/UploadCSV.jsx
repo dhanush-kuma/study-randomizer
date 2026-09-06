@@ -137,19 +137,18 @@ function UploadCSV() {
       <main className="app">
         <div className="page-header">
           <Link to={`/organizer/studies/${studyId}/home`} className="back-link">
-            ← Back to Study
+            Back to Study
           </Link>
-          <h1>{study ? study.title : 'Loading…'} — Upload Randomization</h1>
+          <h1>{study ? study.title : 'Loading...'} - Upload Randomization</h1>
         </div>
 
         {!study ? (
-          <p className="loading">Loading study…</p>
+          <p className="loading">Loading study...</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '760px' }}>
             {study.status === 'Active' && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px 16px', color: '#991b1b', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🔒</span>
-                <span><strong>Study is Active and locked.</strong> Sequence records have already been uploaded and finalized. Re-uploading is disabled.</span>
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px 16px', color: '#991b1b', fontSize: '14px' }}>
+                <strong>Study is Active and locked.</strong> Sequence records have already been uploaded and finalized. Re-uploading is disabled.
               </div>
             )}
 
@@ -178,7 +177,7 @@ function UploadCSV() {
                     onClick={downloadSampleCsv}
                     style={{ fontSize: '13px' }}
                   >
-                    ↓ Download Sample CSV
+                    Download Sample CSV
                   </button>
                 </div>
               </div>
@@ -252,7 +251,7 @@ function UploadCSV() {
                       className="btn-primary"
                       disabled={!file || uploading}
                     >
-                      {uploading ? 'Uploading…' : 'Upload & Activate Study'}
+                      {uploading ? 'Uploading...' : 'Upload and Activate Study'}
                     </button>
                     {file && (
                       <button
@@ -313,7 +312,7 @@ function UploadCSV() {
                     className="btn-primary"
                     style={{ textDecoration: 'none' }}
                   >
-                    ← Back to Study
+                    Back to Study
                   </Link>
                   <button
                     id="btn-upload-another"

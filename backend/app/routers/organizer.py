@@ -15,6 +15,7 @@ from ..core.investigator_invite import (
     parse_investigator_csv,
 )
 from ..core.randomization_csv import parse_randomization_csv
+from ..core.randomization_engine import generate_sequence
 from ..core.investigators import generate_temp_password
 from ..core.email import send_investigator_credentials
 from ..core.rate_limit import limiter
@@ -30,6 +31,9 @@ from ..schemas import (
     BulkInviteResponse,
     BulkInviteRowResult,
     CsvUploadResponse,
+    ArmCount,
+    GenerateRandomizationRequest,
+    GenerateRandomizationResponse,
     InviteInvestigatorRequest,
     InvestigatorOut,
     LoginRequest,
@@ -779,6 +783,34 @@ def get_randomization_records(
 
     total_pages = math.ceil(total_count / per_page) if total_count > 0 else 1
 
+    # Per-arm counts: total and assigned, using a single GROUP BY pass
+    from sqlalchemy import case, func as sqlfunc
+
+    arm_rows = (
+        db.query(
+            RandomizationRecord.treatment_name,
+            sqlfunc.count(RandomizationRecord.id).label("total"),
+            sqlfunc.count(
+                case(
+                    (RandomizationRecord.assigned_patient_id.isnot(None), 1),
+                )
+            ).label("assigned"),
+        )
+        .filter(RandomizationRecord.study_id == study.id)
+        .group_by(RandomizationRecord.treatment_name)
+        .order_by(RandomizationRecord.treatment_name.asc())
+        .all()
+    )
+    arm_counts = [
+        ArmCount(
+            treatment_name=row.treatment_name,
+            total=row.total,
+            assigned=row.assigned,
+            unassigned=row.total - row.assigned,
+        )
+        for row in arm_rows
+    ]
+
     return PaginatedRandomizationRecords(
         total_count=total_count,
         page=page,
@@ -788,5 +820,149 @@ def get_randomization_records(
         unassigned_count=unassigned_count,
         blinded_count=blinded_count,
         unblinded_count=unblinded_count,
+        arm_counts=arm_counts,
         records=record_outs,
+    )
+
+
+@router.post(
+    "/studies/{study_id}/generate-randomization",
+    response_model=GenerateRandomizationResponse,
+    status_code=201,
+)
+@limiter.limit("10/hour")
+def generate_randomization(
+    request: Request,
+    study_id: int,
+    payload: GenerateRandomizationRequest,
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    """
+    Generate randomization records from the study's manual settings.
+    Replaces any existing records and sets study status → Active.
+    """
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
+
+    if study.status == "Active":
+        raise HTTPException(
+            status_code=400,
+            detail="Study is already Active and locked. Randomization records cannot be regenerated.",
+        )
+
+    # Merge payload overrides with stored study settings
+    n = payload.target_sample_size or study.target_sample_size
+    method = payload.randomization_method or study.randomization_method
+    block_min = payload.block_size_min if payload.block_size_min is not None else study.block_size_min
+    block_max = payload.block_size_max if payload.block_size_max is not None else study.block_size_max
+    seed = payload.random_seed  # None is fine – engine will auto-generate
+
+    # Validation guards
+    if not n or n < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Target sample size must be set and be at least 1 before generating.",
+        )
+
+    valid_methods = {"Simple Random", "Permuted Block", "Minimization"}
+    if method not in valid_methods:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid randomization method '{method}'. Choose from: {', '.join(valid_methods)}.",
+        )
+
+    if method == "Permuted Block" and (block_min is None or block_min < 1):
+        raise HTTPException(
+            status_code=400,
+            detail="Block size (min) must be set when using Permuted Block randomization.",
+        )
+
+    arms = (
+        db.query(TreatmentArm)
+        .filter(TreatmentArm.study_id == study_id)
+        .order_by(TreatmentArm.id.asc())
+        .all()
+    )
+    if not arms:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one treatment arm must be configured before generating randomization records.",
+        )
+
+    arms_data = [
+        {
+            "name": arm.name,
+            "short_code": arm.short_code,
+            "allocation_ratio": arm.allocation_ratio,
+        }
+        for arm in arms
+    ]
+
+    kit_prefix = study.protocol_code.upper().replace(" ", "-")
+
+    try:
+        records_data, seed_used = generate_sequence(
+            arms=arms_data,
+            n=n,
+            kit_prefix=kit_prefix,
+            method=method,
+            block_size_min=block_min,
+            block_size_max=block_max,
+            seed=seed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Persist: delete existing records first
+    db.query(RandomizationRecord).filter(
+        RandomizationRecord.study_id == study_id
+    ).delete()
+
+    new_records: list[RandomizationRecord] = []
+    for row in records_data:
+        record = RandomizationRecord(
+            study_id=study_id,
+            sequence_number=row["sequence_number"],
+            kit_code=row["kit_code"],
+            treatment_name=row["treatment_name"],
+        )
+        db.add(record)
+        new_records.append(record)
+
+    # Persist updated study settings + mark active
+    study.target_sample_size = n
+    study.randomization_method = method
+    study.block_size_min = block_min
+    study.block_size_max = block_max
+    study.status = "Active"
+    study.random_seed = str(seed_used)
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while saving the randomization records.",
+        )
+
+    for record in new_records:
+        db.refresh(record)
+
+    audit(
+        "study.randomization_generated",
+        study_id=study_id,
+        method=method,
+        n=n,
+        seed=seed_used,
+        inserted_count=len(new_records),
+        organizer=current_organizer.username,
+        ip=request.client.host if request.client else None,
+    )
+
+    return GenerateRandomizationResponse(
+        inserted_count=len(new_records),
+        study_status=study.status,
+        seed_used=seed_used,
+        records=[RandomizationRecordOut.model_validate(r) for r in new_records],
     )

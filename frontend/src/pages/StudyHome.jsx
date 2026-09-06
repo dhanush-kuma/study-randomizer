@@ -100,7 +100,7 @@ function StudyHome() {
                   <span>{study.blinding_type}</span>
                   {study.status === 'Active' && (
                     <span style={{ marginLeft: '12px', fontSize: '13px', color: '#166534', fontWeight: 600, background: '#f0fdf4', padding: '2px 8px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
-                      🔒 Setup Locked
+                      Setup Locked
                     </span>
                   )}
                 </p>
@@ -137,7 +137,7 @@ function StudyHome() {
                         className="btn-primary"
                         style={{ textDecoration: 'none' }}
                       >
-                        Manage Arms →
+                        Manage Arms
                       </Link>
                     </div>
                   </div>
@@ -158,7 +158,7 @@ function StudyHome() {
                         className="btn-primary"
                         style={{ textDecoration: 'none' }}
                       >
-                        Configure →
+                        Configure
                       </Link>
                     </div>
                   </div>
@@ -169,7 +169,7 @@ function StudyHome() {
                       <span className="setup-badge">Data</span>
                       <h2 style={{ marginTop: '8px', fontSize: '15px' }}>Upload CSV</h2>
                       <p style={{ marginTop: '4px' }}>
-                        Import participant data or baseline sequence from a CSV file.
+                        Import a pre-randomized sequence from a CSV file.
                       </p>
                     </div>
                     <div style={{ padding: '16px 20px' }}>
@@ -179,7 +179,7 @@ function StudyHome() {
                         className="btn-primary"
                         style={{ textDecoration: 'none' }}
                       >
-                        Upload CSV →
+                        Upload CSV
                       </Link>
                     </div>
                   </div>
@@ -209,6 +209,37 @@ function StudyHome() {
                         <div style={{ fontSize: '28px', fontWeight: 700, color: '#991b1b', marginTop: '4px' }}>{recordsData.unblinded_count}</div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Arm Breakdown Table */}
+                {recordsData && recordsData.arm_counts && recordsData.arm_counts.length > 0 && (
+                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '24px', overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', margin: 0 }}>Arm Allocation Breakdown</h3>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Treatment Arm</th>
+                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Total Records</th>
+                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Assigned</th>
+                            <th style={{ padding: '10px 20px', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase' }}>Unassigned</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recordsData.arm_counts.map((arm, idx) => (
+                            <tr key={idx} style={{ borderBottom: idx === recordsData.arm_counts.length - 1 ? 'none' : '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '12px 20px', fontWeight: 500, color: '#0f172a' }}>{arm.treatment_name}</td>
+                              <td style={{ padding: '12px 20px', color: '#334155' }}>{arm.total}</td>
+                              <td style={{ padding: '12px 20px', color: '#15803d', fontWeight: 500 }}>{arm.assigned}</td>
+                              <td style={{ padding: '12px 20px', color: '#b45309', fontWeight: 500 }}>{arm.unassigned}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 

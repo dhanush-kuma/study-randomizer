@@ -332,6 +332,13 @@ class RandomizationRecordOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ArmCount(BaseModel):
+    treatment_name: str
+    total: int
+    assigned: int
+    unassigned: int
+
+
 class PaginatedRandomizationRecords(BaseModel):
     total_count: int
     page: int
@@ -341,6 +348,7 @@ class PaginatedRandomizationRecords(BaseModel):
     unassigned_count: int
     blinded_count: Optional[int] = 0
     unblinded_count: Optional[int] = 0
+    arm_counts: list[ArmCount] = []
     records: list[RandomizationRecordOut]
 
 
@@ -358,5 +366,38 @@ class UnblindResponse(BaseModel):
     record_id: int
     treatment_name: str
     message: str
+
+
+class GenerateRandomizationRequest(BaseModel):
+    """
+    Optional overrides applied on top of what is already saved on the study.
+    If a field is None the value stored on the Study model is used instead.
+    """
+    target_sample_size: Optional[int] = None
+    randomization_method: Optional[str] = None
+    block_size_min: Optional[int] = None
+    block_size_max: Optional[int] = None
+    random_seed: Optional[str] = None  # user-supplied seed for reproducibility
+
+    @field_validator("target_sample_size")
+    @classmethod
+    def positive_sample_size(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("Target sample size must be at least 1")
+        return v
+
+    @field_validator("block_size_min", "block_size_max")
+    @classmethod
+    def positive_block_size(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 1:
+            raise ValueError("Block size must be at least 1")
+        return v
+
+
+class GenerateRandomizationResponse(BaseModel):
+    inserted_count: int
+    study_status: str
+    seed_used: int
+    records: list[RandomizationRecordOut]
 
 

@@ -126,9 +126,8 @@ function StudyArms() {
             </div>
 
             {study.status === 'Active' && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px 16px', margin: '16px 24px 0', color: '#991b1b', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>🔒</span>
-                <span><strong>Study is Active and locked.</strong> Treatment arms cannot be added, edited, or deleted.</span>
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px 16px', margin: '16px 24px 0', color: '#991b1b', fontSize: '14px' }}>
+                <strong>Study is Active and locked.</strong> Treatment arms cannot be added, edited, or deleted.
               </div>
             )}
 
