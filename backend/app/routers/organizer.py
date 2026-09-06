@@ -11,6 +11,7 @@ from ..core.investigator_invite import (
     create_and_send_investigator_invite,
     parse_investigator_csv,
 )
+from ..core.randomization_csv import parse_randomization_csv
 from ..core.investigators import generate_temp_password
 from ..core.email import send_investigator_credentials
 from ..core.rate_limit import limiter
@@ -21,16 +22,18 @@ from ..core.security import (
     revoke_token,
 )
 from ..database import get_db
-from ..models import Investigator, Organizer, Study, TreatmentArm
+from ..models import Investigator, Organizer, RandomizationRecord, Study, TreatmentArm
 from ..schemas import (
     BulkInviteResponse,
     BulkInviteRowResult,
+    CsvUploadResponse,
     InviteInvestigatorRequest,
     InvestigatorOut,
     LoginRequest,
     LoginResponse,
     MessageResponse,
     OrganizerInfo,
+    RandomizationRecordOut,
     StudyCreate,
     StudyOut,
     StudyUpdate,
@@ -583,3 +586,103 @@ def reset_investigator_password(
         email_configured=email_is_configured(),
     )
     return investigator
+
+
+@router.post(
+    "/studies/{study_id}/upload-randomization-csv",
+    response_model=CsvUploadResponse,
+)
+@limiter.limit("20/hour")
+async def upload_randomization_csv(
+    request: Request,
+    study_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_organizer: Organizer = Depends(get_current_organizer),
+):
+    """
+    Upload a pre-randomized CSV sequence.  Replaces any existing
+    randomization_records for the study and sets its status to 'Active'.
+
+    Required CSV columns: sequence_number, kit_code, short_code
+    Optional column:      treatment_arm  (display name; falls back to short_code)
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Please upload a .csv file.")
+
+    study = _get_study_for_organizer(study_id, current_organizer.id, db)
+
+    content = await file.read()
+    try:
+        parsed_rows = parse_randomization_csv(content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Build a short_code → treatment arm name map from the study's arms
+    arm_map: dict[str, str] = {
+        arm.short_code: arm.name for arm in study.treatment_arms
+    }
+
+    # Validate every short_code in the CSV against study arms (only if arms exist)
+    if arm_map:
+        unknown_codes = {
+            row["short_code"]
+            for row in parsed_rows
+            if row["short_code"] not in arm_map
+        }
+        if unknown_codes:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Unknown short_code(s) in CSV: {', '.join(sorted(unknown_codes))}. "
+                    f"This study's arms are: {', '.join(sorted(arm_map.keys()))}."
+                ),
+            )
+
+    # Replace all existing randomization records for this study
+    db.query(RandomizationRecord).filter(
+        RandomizationRecord.study_id == study_id
+    ).delete()
+
+    new_records: list[RandomizationRecord] = []
+    for row in parsed_rows:
+        # Use the arm's canonical name if available, else the CSV column
+        treatment_name = arm_map.get(row["short_code"]) or row["treatment_name"]
+        record = RandomizationRecord(
+            study_id=study_id,
+            sequence_number=row["sequence_number"],
+            kit_code=row["kit_code"],
+            treatment_name=treatment_name,
+        )
+        db.add(record)
+        new_records.append(record)
+
+    # Mark the study as active and note it was populated via CSV
+    study.status = "Active"
+    study.random_seed = "csv-upload"
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="A kit_code in the CSV conflicts with an existing record in another study.",
+        )
+
+    for record in new_records:
+        db.refresh(record)
+
+    audit(
+        "study.randomization_csv_uploaded",
+        study_id=study_id,
+        inserted_count=len(new_records),
+        organizer=current_organizer.username,
+        ip=request.client.host if request.client else None,
+    )
+
+    return CsvUploadResponse(
+        inserted_count=len(new_records),
+        study_status=study.status,
+        records=[RandomizationRecordOut.model_validate(r) for r in new_records],
+    )

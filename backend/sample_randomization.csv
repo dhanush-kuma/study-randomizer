@@ -1,0 +1,13 @@
+sequence_number,kit_code,short_code,treatment_arm
+1,KIT-001,DA,Drug A
+2,KIT-002,PBO,Placebo
+3,KIT-003,PBO,Placebo
+4,KIT-004,DA,Drug A
+5,KIT-005,DA,Drug A
+6,KIT-006,PBO,Placebo
+7,KIT-007,PBO,Placebo
+8,KIT-008,DA,Drug A
+9,KIT-009,DA,Drug A
+10,KIT-010,PBO,Placebo
+11,KIT-011,PBO,Placebo
+12,KIT-012,DA,Drug A

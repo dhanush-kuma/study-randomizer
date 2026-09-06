@@ -311,3 +311,21 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def new_password_strength(cls, v: str) -> str:
         return validate_new_password(v)
+
+
+class RandomizationRecordOut(BaseModel):
+    id: int
+    study_id: int
+    sequence_number: int
+    kit_code: str
+    treatment_name: str
+    assigned_patient_id: Optional[str] = None
+    assigned_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class CsvUploadResponse(BaseModel):
+    inserted_count: int
+    study_status: str
+    records: list[RandomizationRecordOut]
