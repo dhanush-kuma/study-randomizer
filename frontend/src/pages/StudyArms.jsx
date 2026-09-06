@@ -7,10 +7,7 @@ function StudyArms() {
   const { studyId } = useParams()
   const navigate = useNavigate()
   const [study, setStudy] = useState(null)
-  const [arms, setArms] = useState([
-    { name: 'Arm A', short_code: 'ARM_A', allocation_ratio: 1, description: '' },
-    { name: 'Arm B', short_code: 'ARM_B', allocation_ratio: 1, description: '' },
-  ])
+  const [arms, setArms] = useState([])
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -55,13 +52,17 @@ function StudyArms() {
   }
 
   function handleRemoveArm(index) {
-    if (arms.length <= 1) return
     setArms((prev) => prev.filter((_, i) => i !== index))
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+
+    if (arms.length === 0) {
+      setError('Please add at least one treatment arm before saving.')
+      return
+    }
 
     for (let i = 0; i < arms.length; i++) {
       const arm = arms[i]
@@ -143,11 +144,15 @@ function StudyArms() {
                 </div>
 
                 <div className="arms-list">
-                  {arms.map((arm, index) => (
-                    <div key={index} className="arm-card">
-                      <div className="arm-card__header">
-                        <span className="arm-number">Arm #{index + 1}</span>
-                        {arms.length > 1 && (
+                  {arms.length === 0 ? (
+                    <div className="empty-state" style={{ margin: '8px 0 16px' }}>
+                      <p>No arms yet. Click <strong>+ Add Arm</strong> to define treatment arms for this study.</p>
+                    </div>
+                  ) : (
+                    arms.map((arm, index) => (
+                      <div key={index} className="arm-card">
+                        <div className="arm-card__header">
+                          <span className="arm-number">Arm #{index + 1}</span>
                           <button
                             type="button"
                             className="btn-danger"
@@ -156,64 +161,64 @@ function StudyArms() {
                           >
                             Remove
                           </button>
-                        )}
+                        </div>
+
+                        <div className="arm-grid">
+                          <div className="field">
+                            <label htmlFor={`arm-name-${index}`}>Name / Label *</label>
+                            <input
+                              id={`arm-name-${index}`}
+                              type="text"
+                              value={arm.name}
+                              onChange={(e) => handleArmChange(index, 'name', e.target.value)}
+                              placeholder="e.g. Drug A (100mg Capsule)"
+                              required
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label htmlFor={`arm-code-${index}`}>Short Code *</label>
+                            <input
+                              id={`arm-code-${index}`}
+                              type="text"
+                              value={arm.short_code}
+                              onChange={(e) => handleArmChange(index, 'short_code', e.target.value)}
+                              placeholder="e.g. ARM_A"
+                              required
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label htmlFor={`arm-ratio-${index}`}>Allocation Ratio *</label>
+                            <input
+                              id={`arm-ratio-${index}`}
+                              type="number"
+                              min="1"
+                              value={arm.allocation_ratio}
+                              onChange={(e) =>
+                                handleArmChange(index, 'allocation_ratio', e.target.value)
+                              }
+                              placeholder="1"
+                              required
+                            />
+                          </div>
+
+                          <div className="field">
+                            <label htmlFor={`arm-desc-${index}`}>Description / Notes</label>
+                            <input
+                              id={`arm-desc-${index}`}
+                              type="text"
+                              value={arm.description}
+                              onChange={(e) =>
+                                handleArmChange(index, 'description', e.target.value)
+                              }
+                              placeholder="Optional dosing instructions or notes"
+                            />
+                          </div>
+                        </div>
                       </div>
-
-                      <div className="arm-grid">
-                        <div className="field">
-                          <label htmlFor={`arm-name-${index}`}>Name / Label *</label>
-                          <input
-                            id={`arm-name-${index}`}
-                            type="text"
-                            value={arm.name}
-                            onChange={(e) => handleArmChange(index, 'name', e.target.value)}
-                            placeholder="e.g. Drug A (100mg Capsule)"
-                            required
-                          />
-                        </div>
-
-                        <div className="field">
-                          <label htmlFor={`arm-code-${index}`}>Short Code *</label>
-                          <input
-                            id={`arm-code-${index}`}
-                            type="text"
-                            value={arm.short_code}
-                            onChange={(e) => handleArmChange(index, 'short_code', e.target.value)}
-                            placeholder="e.g. ARM_A"
-                            required
-                          />
-                        </div>
-
-                        <div className="field">
-                          <label htmlFor={`arm-ratio-${index}`}>Allocation Ratio *</label>
-                          <input
-                            id={`arm-ratio-${index}`}
-                            type="number"
-                            min="1"
-                            value={arm.allocation_ratio}
-                            onChange={(e) =>
-                              handleArmChange(index, 'allocation_ratio', e.target.value)
-                            }
-                            placeholder="1"
-                            required
-                          />
-                        </div>
-
-                        <div className="field">
-                          <label htmlFor={`arm-desc-${index}`}>Description / Notes</label>
-                          <input
-                            id={`arm-desc-${index}`}
-                            type="text"
-                            value={arm.description}
-                            onChange={(e) =>
-                              handleArmChange(index, 'description', e.target.value)
-                            }
-                            placeholder="Optional dosing instructions or notes"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
