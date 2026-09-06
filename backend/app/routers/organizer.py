@@ -730,6 +730,10 @@ def get_randomization_records(
         query = query.filter(RandomizationRecord.assigned_patient_id.isnot(None))
     elif status_filter == "unassigned":
         query = query.filter(RandomizationRecord.assigned_patient_id.is_(None))
+    elif status_filter == "blinded":
+        query = query.filter(RandomizationRecord.blind.is_(True))
+    elif status_filter == "unblinded":
+        query = query.filter(RandomizationRecord.blind.is_(False))
 
     total_count = query.count()
 
@@ -738,6 +742,12 @@ def get_randomization_records(
     ).count()
     unassigned_count = base_query.filter(
         RandomizationRecord.assigned_patient_id.is_(None)
+    ).count()
+    blinded_count = base_query.filter(
+        RandomizationRecord.blind.is_(True)
+    ).count()
+    unblinded_count = base_query.filter(
+        RandomizationRecord.blind.is_(False)
     ).count()
 
     offset = (page - 1) * per_page
@@ -763,6 +773,7 @@ def get_randomization_records(
                 assigned_by_investigator_id=r.assigned_by_investigator_id,
                 assigned_by_investigator_username=inv_username,
                 assigned_at=r.assigned_at,
+                blind=r.blind,
             )
         )
 
@@ -775,5 +786,7 @@ def get_randomization_records(
         total_pages=total_pages,
         assigned_count=assigned_count,
         unassigned_count=unassigned_count,
+        blinded_count=blinded_count,
+        unblinded_count=unblinded_count,
         records=record_outs,
     )

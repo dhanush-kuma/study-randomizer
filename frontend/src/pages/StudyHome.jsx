@@ -190,7 +190,7 @@ function StudyHome() {
               <>
                 {/* Stats Summary Cards */}
                 {recordsData && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${recordsData.unblinded_count > 0 ? 4 : 3}, 1fr)`, gap: '16px', marginBottom: '24px' }}>
                     <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px 20px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Sequence Records</div>
                       <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a', marginTop: '4px' }}>{recordsData.total_count}</div>
@@ -203,6 +203,12 @@ function StudyHome() {
                       <div style={{ fontSize: '12px', fontWeight: 600, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Unassigned / Available</div>
                       <div style={{ fontSize: '28px', fontWeight: 700, color: '#92400e', marginTop: '4px' }}>{recordsData.unassigned_count}</div>
                     </div>
+                    {recordsData.unblinded_count > 0 && (
+                      <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '16px 20px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Emergency Unblinded</div>
+                        <div style={{ fontSize: '28px', fontWeight: 700, color: '#991b1b', marginTop: '4px' }}>{recordsData.unblinded_count}</div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -271,6 +277,40 @@ function StudyHome() {
                         >
                           Unassigned
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFilterChange('blinded')}
+                          style={{
+                            border: 'none',
+                            background: statusFilter === 'blinded' ? '#ffffff' : 'transparent',
+                            color: statusFilter === 'blinded' ? '#0f172a' : '#64748b',
+                            fontWeight: statusFilter === 'blinded' ? 600 : 500,
+                            padding: '4px 12px',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          Blinded
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFilterChange('unblinded')}
+                          style={{
+                            border: 'none',
+                            background: statusFilter === 'unblinded' ? '#ffffff' : 'transparent',
+                            color: statusFilter === 'unblinded' ? '#b91c1c' : '#64748b',
+                            fontWeight: statusFilter === 'unblinded' ? 600 : 500,
+                            padding: '4px 12px',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          Unblinded
+                        </button>
                       </div>
 
                       {/* Search Bar */}
@@ -325,6 +365,7 @@ function StudyHome() {
                             <th style={{ padding: '12px 16px', width: '100px' }}>Seq #</th>
                             <th style={{ padding: '12px 16px' }}>Kit Code</th>
                             <th style={{ padding: '12px 16px' }}>Drug / Treatment Arm</th>
+                            <th style={{ padding: '12px 16px' }}>Blind Status</th>
                             <th style={{ padding: '12px 16px' }}>Patient ID</th>
                             <th style={{ padding: '12px 16px' }}>Investigator ID</th>
                             <th style={{ padding: '12px 16px' }}>Assigned Date</th>
@@ -343,6 +384,17 @@ function StudyHome() {
                                 <span style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 500, padding: '3px 8px', borderRadius: '4px', fontSize: '13px' }}>
                                   {rec.treatment_name}
                                 </span>
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                {rec.blind ? (
+                                  <span style={{ background: '#f1f5f9', color: '#475569', fontWeight: 600, padding: '3px 8px', borderRadius: '4px', fontSize: '12px', border: '1px solid #cbd5e1' }}>
+                                    Blinded
+                                  </span>
+                                ) : (
+                                  <span style={{ background: '#fef2f2', color: '#b91c1c', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', fontSize: '12px', border: '1px solid #fecaca' }}>
+                                    UNBLINDED
+                                  </span>
+                                )}
                               </td>
                               <td style={{ padding: '12px 16px' }}>
                                 {rec.assigned_patient_id ? (

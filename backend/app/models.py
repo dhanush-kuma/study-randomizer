@@ -137,6 +137,7 @@ class RandomizationRecord(Base):
     assigned_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    blind: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     study: Mapped["Study"] = relationship("Study", back_populates="randomization_records")
     assigned_by_investigator: Mapped[Optional["Investigator"]] = relationship("Investigator")

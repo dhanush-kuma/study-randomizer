@@ -294,6 +294,10 @@ class InvestigatorInfo(BaseModel):
     name: Optional[str] = None
     study_id: int
     trial_id: str
+    study_title: Optional[str] = None
+    study_description: Optional[str] = None
+    blinding_type: Optional[str] = None
+    emergency_unblinding_allowed: Optional[bool] = None
     status: str
     csrf_token: str
 
@@ -323,6 +327,7 @@ class RandomizationRecordOut(BaseModel):
     assigned_by_investigator_id: Optional[int] = None
     assigned_by_investigator_username: Optional[str] = None
     assigned_at: Optional[datetime] = None
+    blind: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -334,6 +339,8 @@ class PaginatedRandomizationRecords(BaseModel):
     total_pages: int
     assigned_count: int
     unassigned_count: int
+    blinded_count: Optional[int] = 0
+    unblinded_count: Optional[int] = 0
     records: list[RandomizationRecordOut]
 
 
@@ -341,3 +348,15 @@ class CsvUploadResponse(BaseModel):
     inserted_count: int
     study_status: str
     records: list[RandomizationRecordOut]
+
+
+class AssignKitRequest(BaseModel):
+    patient_id: str
+
+
+class UnblindResponse(BaseModel):
+    record_id: int
+    treatment_name: str
+    message: str
+
+
