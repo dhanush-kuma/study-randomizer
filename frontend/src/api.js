@@ -3,6 +3,10 @@ import { API_URL } from './config'
 const CSRF_STORAGE_KEY = 'csrf_token'
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
+// Paths the backend exempts from CSRF — mirror the server-side list so we
+// don't throw a CsrfError before the request even leaves the browser.
+const CSRF_EXEMPT_PATHS = new Set(['/setup', '/setup/status', '/admin/login', '/organizer/login', '/investigator/login'])
+
 export class CsrfError extends Error {
   constructor(message = 'CSRF token unavailable. Please sign in again.') {
     super(message)
@@ -77,8 +81,14 @@ export async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {})
 
   if (UNSAFE_METHODS.has(method)) {
-    const csrf = await requireCsrfToken(path)
-    headers.set('X-CSRF-Token', csrf)
+    if (CSRF_EXEMPT_PATHS.has(path)) {
+      // Backend doesn't require CSRF for this path — send token if we have one, but don't throw if not.
+      const csrf = getCsrfToken()
+      if (csrf) headers.set('X-CSRF-Token', csrf)
+    } else {
+      const csrf = await requireCsrfToken(path)
+      headers.set('X-CSRF-Token', csrf)
+    }
   }
 
   if (options.json !== undefined) {
