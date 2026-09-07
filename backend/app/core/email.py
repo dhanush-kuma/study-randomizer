@@ -35,12 +35,25 @@ def send_email(to: str, subject: str, body: str) -> None:
     message["Subject"] = subject
     message.set_content(body)
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
-        if SMTP_USE_TLS:
-            server.starttls()
-        if SMTP_USER and SMTP_PASSWORD:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(message)
+    # Port 465 → implicit SSL (e.g. Resend, Gmail SSL).
+    # Port 587 → plain SMTP + optional STARTTLS upgrade.
+    use_ssl = SMTP_PORT == 465
+    try:
+        if use_ssl:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=30) as server:
+                if SMTP_USER and SMTP_PASSWORD:
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(message)
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as server:
+                if SMTP_USE_TLS:
+                    server.starttls()
+                if SMTP_USER and SMTP_PASSWORD:
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                server.send_message(message)
+    except Exception as exc:
+        logger.error("Failed to send email to %s: %s", to, exc)
+        raise RuntimeError(f"Failed to send email: {exc}") from exc
 
 
 def send_investigator_credentials(
