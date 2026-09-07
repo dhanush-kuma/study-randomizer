@@ -57,9 +57,13 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", "")
 SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
 
+# Resend HTTP API key — preferred over SMTP on Railway (avoids outbound SMTP port blocks).
+# Set RESEND_API_KEY + SMTP_FROM; leave SMTP_HOST empty when using this mode.
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+
 
 def email_is_configured() -> bool:
-    return bool(SMTP_HOST and SMTP_FROM)
+    return bool(SMTP_FROM and (RESEND_API_KEY or SMTP_HOST))
 
 if IS_PRODUCTION:
     if not SECRET_KEY or SECRET_KEY == DEFAULT_SECRET_KEY:
