@@ -12,7 +12,7 @@ from ..schemas import HealthResponse, SetupRequest, SetupResponse, StatusRespons
 router = APIRouter(tags=["setup"])
 
 
-@router.get("/", response_model=HealthResponse)
+@router.get("/health", response_model=HealthResponse)
 def health_check():
     """Public health check without exposing setup state."""
     return HealthResponse(status="ok", message="Study Randomizer API")

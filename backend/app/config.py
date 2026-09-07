@@ -16,9 +16,21 @@ DEFAULT_SECRET_KEY = "change-this-secret-key-in-production"
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "development").lower()
 IS_PRODUCTION = ENVIRONMENT == "production"
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql+psycopg2://postgres:password@127.0.0.1/study-randomizer",
+
+def normalize_database_url(url: str) -> str:
+    """Railway/Heroku often provide postgres:// — SQLAlchemy needs a psycopg2 driver."""
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg2://", 1)
+    if url.startswith("postgresql://") and "+psycopg2" not in url:
+        return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    return url
+
+
+DATABASE_URL = normalize_database_url(
+    os.environ.get(
+        "DATABASE_URL",
+        "postgresql+psycopg2://postgres:password@127.0.0.1/study-randomizer",
+    )
 )
 
 SECRET_KEY = os.environ.get("SECRET_KEY", DEFAULT_SECRET_KEY)
