@@ -289,6 +289,7 @@ function StudyInvestigators() {
                     <li>Do <strong>not</strong> include a header row — data only.</li>
                     <li>Name is optional and may be left empty; email is required on every row.</li>
                     <li>Maximum 100 investigators per file.</li>
+                    <li>Maximum file size: <strong>1 MB</strong>.</li>
                   </ul>
 
                   <a

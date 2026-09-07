@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from ..models import Investigator, Study
 from .email import send_investigator_credentials
 from .investigators import generate_temp_password, generate_username
+from .csv_limits import ensure_csv_size
 from .validators import normalize_email
 
 MAX_BULK_ROWS = 100
@@ -30,6 +31,8 @@ def parse_investigator_csv(content: bytes) -> list[tuple[int, str | None, str]]:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise ValueError("CSV must be UTF-8 encoded.") from exc
+
+    ensure_csv_size(content)
 
     rows: list[tuple[int, str | None, str]] = []
     reader = csv.reader(io.StringIO(text))

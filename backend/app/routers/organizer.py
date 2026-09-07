@@ -14,6 +14,7 @@ from ..core.investigator_invite import (
     create_and_send_investigator_invite,
     parse_investigator_csv,
 )
+from ..core.csv_limits import read_csv_upload_limited
 from ..core.randomization_csv import parse_randomization_csv
 from ..core.randomization_engine import generate_sequence
 from ..core.investigators import generate_temp_password
@@ -379,7 +380,7 @@ async def bulk_invite_investigators(
         raise HTTPException(status_code=400, detail="Please upload a .csv file.")
 
     study = _get_study_for_organizer(study_id, current_organizer.id, db)
-    content = await file.read()
+    content = await read_csv_upload_limited(file)
 
     try:
         parsed_rows = parse_investigator_csv(content)
@@ -652,7 +653,7 @@ async def upload_randomization_csv(
             detail="Study is Active and locked. Sequence records have already been finalized.",
         )
 
-    content = await file.read()
+    content = await read_csv_upload_limited(file)
     try:
         parsed_rows = parse_randomization_csv(content)
     except ValueError as exc:

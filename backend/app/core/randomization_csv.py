@@ -18,6 +18,8 @@ import csv
 import io
 from typing import TypedDict
 
+from .csv_limits import ensure_csv_size
+
 
 REQUIRED_COLUMNS = {"sequence_number", "kit_code", "treatment_arm"}
 
@@ -37,6 +39,8 @@ def parse_randomization_csv(content: bytes) -> list[ParsedRow]:
         text = content.decode("utf-8-sig")  # handle BOM from Excel
     except UnicodeDecodeError:
         raise ValueError("File must be UTF-8 encoded.")
+
+    ensure_csv_size(content)
 
     reader = csv.DictReader(io.StringIO(text))
 

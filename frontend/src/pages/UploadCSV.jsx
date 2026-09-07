@@ -181,6 +181,7 @@ function UploadCSV() {
                   <li>Required columns: <code>sequence_number</code>, <code>kit_code</code>, <code>treatment_arm</code></li>
                   <li><code>kit_code</code> identifies the treatment kit — the same value repeats for every row in the same arm (e.g. <code>KIT-DA</code> for all Drug A rows).</li>
                   <li><code>treatment_arm</code> is the display name of the arm (e.g. <em>Drug A</em>, <em>Placebo</em>).</li>
+                  <li>Maximum file size: <strong>1 MB</strong>.</li>
                   <li>Re-uploading <strong>replaces</strong> all existing records for this study.</li>
                   <li>On success, study status is set to <strong>Active</strong>.</li>
                 </ul>
