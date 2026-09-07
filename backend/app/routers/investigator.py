@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import clear_auth_cookie, clear_csrf_cookie, set_auth_cookie, set_csrf_cookie
@@ -9,6 +10,7 @@ from ..core.audit import audit
 from ..core.rate_limit import limiter
 from ..core.security import (
     ROLE_INVESTIGATOR,
+    bump_investigator_session,
     create_access_token,
     get_current_investigator,
     revoke_token,
@@ -30,6 +32,25 @@ router = APIRouter(prefix="/investigator", tags=["investigator"])
 
 COOKIE_NAME = "investigator_access_token"
 COOKIE_MAX_AGE = 60 * 60 * 24
+
+
+def _investigator_record_out(
+    record: RandomizationRecord,
+    investigator_username: str | None = None,
+) -> RandomizationRecordOut:
+    """Hide treatment arm while the record is still blinded."""
+    return RandomizationRecordOut(
+        id=record.id,
+        study_id=record.study_id,
+        sequence_number=record.sequence_number,
+        kit_code=record.kit_code,
+        treatment_name=record.treatment_name if not record.blind else None,
+        assigned_patient_id=record.assigned_patient_id,
+        assigned_by_investigator_id=record.assigned_by_investigator_id,
+        assigned_by_investigator_username=investigator_username,
+        assigned_at=record.assigned_at,
+        blind=record.blind,
+    )
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -88,7 +109,11 @@ def login(
         db.commit()
 
     # JWT sub stores the investigator's DB id (study-unique usernames would collide across studies)
-    token = create_access_token(str(investigator.id), ROLE_INVESTIGATOR)
+    token = create_access_token(
+        str(investigator.id),
+        ROLE_INVESTIGATOR,
+        session_version=investigator.session_version,
+    )
     set_auth_cookie(response, COOKIE_NAME, token, COOKIE_MAX_AGE)
     csrf_token = set_csrf_cookie(response, COOKIE_MAX_AGE)
     audit(
@@ -139,11 +164,13 @@ def get_me(
     )
 
 
-@router.post("/change-password", response_model=MessageResponse)
+@router.post("/change-password", response_model=LoginResponse)
 @limiter.limit("5/minute")
 def change_password(
     request: Request,
     payload: ChangePasswordRequest,
+    response: Response,
+    investigator_access_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
     current_investigator: Investigator = Depends(get_current_investigator),
 ):
@@ -152,11 +179,23 @@ def change_password(
     ):
         raise HTTPException(status_code=400, detail="Current password is incorrect.")
 
-    new_hash = bcrypt.hashpw(payload.new_password.encode(), bcrypt.gensalt()).decode()
-    current_investigator.password_hash = new_hash
+    bump_investigator_session(current_investigator)
+    current_investigator.password_hash = bcrypt.hashpw(
+        payload.new_password.encode(), bcrypt.gensalt()
+    ).decode()
+    revoke_token(investigator_access_token, db)
     db.commit()
+    db.refresh(current_investigator)
+
+    token = create_access_token(
+        str(current_investigator.id),
+        ROLE_INVESTIGATOR,
+        session_version=current_investigator.session_version,
+    )
+    set_auth_cookie(response, COOKIE_NAME, token, COOKIE_MAX_AGE)
+    csrf_token = set_csrf_cookie(response, COOKIE_MAX_AGE)
     audit("investigator.password_changed", investigator_id=current_investigator.id)
-    return MessageResponse(message="Password changed successfully.")
+    return LoginResponse(message="Password changed successfully.", csrf_token=csrf_token)
 
 
 @router.post("/assign-kit", response_model=RandomizationRecordOut)
@@ -192,7 +231,7 @@ def assign_kit(
             detail=f"Patient ID '{patient_id}' has already been assigned a kit code in this study.",
         )
 
-    # Get next unassigned record
+    # Get next unassigned record (lock row to prevent concurrent assignment)
     record = (
         db.query(RandomizationRecord)
         .filter(
@@ -200,6 +239,7 @@ def assign_kit(
             RandomizationRecord.assigned_patient_id.is_(None),
         )
         .order_by(RandomizationRecord.sequence_number.asc())
+        .with_for_update(skip_locked=True)
         .first()
     )
     if not record:
@@ -212,7 +252,14 @@ def assign_kit(
     record.assigned_by_investigator_id = current_investigator.id
     record.assigned_at = datetime.now(timezone.utc)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Patient ID '{patient_id}' has already been assigned a kit code in this study.",
+        ) from None
     db.refresh(record)
 
     audit(
@@ -225,18 +272,7 @@ def assign_kit(
         ip=request.client.host if request.client else None,
     )
 
-    return RandomizationRecordOut(
-        id=record.id,
-        study_id=record.study_id,
-        sequence_number=record.sequence_number,
-        kit_code=record.kit_code,
-        treatment_name=record.treatment_name,
-        assigned_patient_id=record.assigned_patient_id,
-        assigned_by_investigator_id=record.assigned_by_investigator_id,
-        assigned_by_investigator_username=current_investigator.username,
-        assigned_at=record.assigned_at,
-        blind=record.blind,
-    )
+    return _investigator_record_out(record, current_investigator.username)
 
 
 @router.get("/assignments", response_model=list[RandomizationRecordOut])
@@ -256,20 +292,8 @@ def get_assignments(
     )
     res = []
     for r in records:
-        res.append(
-            RandomizationRecordOut(
-                id=r.id,
-                study_id=r.study_id,
-                sequence_number=r.sequence_number,
-                kit_code=r.kit_code,
-                treatment_name=r.treatment_name,
-                assigned_patient_id=r.assigned_patient_id,
-                assigned_by_investigator_id=r.assigned_by_investigator_id,
-                assigned_by_investigator_username=r.assigned_by_investigator.username if r.assigned_by_investigator else None,
-                assigned_at=r.assigned_at,
-                blind=r.blind,
-            )
-        )
+        username = r.assigned_by_investigator.username if r.assigned_by_investigator else None
+        res.append(_investigator_record_out(r, username))
     return res
 
 

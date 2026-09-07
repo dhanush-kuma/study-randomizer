@@ -3,7 +3,6 @@ Shared logic for inviting investigators (single or bulk).
 """
 import csv
 import io
-import re
 
 import bcrypt
 from sqlalchemy.orm import Session
@@ -11,9 +10,9 @@ from sqlalchemy.orm import Session
 from ..models import Investigator, Study
 from .email import send_investigator_credentials
 from .investigators import generate_temp_password, generate_username
+from .validators import normalize_email
 
 MAX_BULK_ROWS = 100
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class DuplicateInvestigatorError(Exception):
@@ -46,8 +45,10 @@ def parse_investigator_csv(content: bytes) -> list[tuple[int, str | None, str]]:
         email_raw, name_raw = row[0].strip().lower(), row[1].strip()
         if not email_raw:
             raise ValueError(f"Row {line_num}: email is required.")
-        if not _EMAIL_RE.match(email_raw):
-            raise ValueError(f"Row {line_num}: invalid email address '{email_raw}'.")
+        try:
+            email_raw = normalize_email(email_raw)
+        except ValueError as exc:
+            raise ValueError(f"Row {line_num}: {exc}") from exc
 
         name = name_raw if name_raw else None
         rows.append((line_num, name, email_raw))

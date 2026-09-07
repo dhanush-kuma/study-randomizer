@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch, clearCsrfToken, storeCsrfFromResponse } from '../api'
+import { apiFetch, apiLogout, storeCsrfFromResponse } from '../api'
 import PasswordInput from '../components/PasswordInput'
 import Header from '../components/Header'
 
@@ -8,6 +8,7 @@ function AdminHome() {
   const navigate = useNavigate()
   const [admin, setAdmin] = useState(null)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState(null)
 
   // Organizer list & form state
   const [organizers, setOrganizers] = useState([])
@@ -38,10 +39,20 @@ function AdminHome() {
   }
 
   async function handleLogout() {
+    setLogoutError(null)
     setLoggingOut(true)
-    await apiFetch('/admin/logout', { method: 'POST' })
-    clearCsrfToken()
-    navigate('/admin/login', { replace: true })
+    try {
+      const ok = await apiLogout('/admin/logout')
+      if (ok) {
+        navigate('/admin/login', { replace: true })
+      } else {
+        setLogoutError('Logout failed. Please try again.')
+      }
+    } catch {
+      setLogoutError('Could not connect to backend.')
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   async function handleCreateOrganizer(e) {
@@ -104,6 +115,7 @@ function AdminHome() {
           <p className="loading">Loading…</p>
         ) : (
           <>
+            {logoutError && <p className="error">{logoutError}</p>}
             {/* ── Welcome card ── */}
             <div className="status-card" style={{ marginBottom: '28px' }}>
               <div className="label">Session</div>

@@ -42,6 +42,7 @@ function InvestigatorChangePassword() {
         return
       }
 
+      storeCsrfFromResponse(data)
       setSuccessMsg('Password changed successfully.')
       setCurrentPassword('')
       setNewPassword('')

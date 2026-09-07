@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { apiFetch, clearCsrfToken, storeCsrfFromResponse } from '../api'
+import { apiFetch, apiLogout, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 function InvestigatorHome() {
   const navigate = useNavigate()
   const [investigator, setInvestigator] = useState(null)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState(null)
 
   // Patient randomization form state
   const [patientId, setPatientId] = useState('')
@@ -52,14 +53,20 @@ function InvestigatorHome() {
   }, [navigate])
 
   async function handleLogout() {
+    setLogoutError(null)
     setLoggingOut(true)
     try {
-      await apiFetch('/investigator/logout', { method: 'POST' })
-      clearCsrfToken()
+      const ok = await apiLogout('/investigator/logout')
+      if (ok) {
+        navigate('/investigator/login', { replace: true })
+      } else {
+        setLogoutError('Logout failed. Please try again.')
+      }
     } catch {
-      // Ignore network errors on logout
+      setLogoutError('Could not connect to backend.')
+    } finally {
+      setLoggingOut(false)
     }
-    navigate('/investigator/login', { replace: true })
   }
 
   async function handleAssignKit(e) {
@@ -167,6 +174,7 @@ function InvestigatorHome() {
           <p className="loading">Verifying session…</p>
         ) : (
           <>
+            {logoutError && <p className="error">{logoutError}</p>}
             <h1>{investigator.study_title || 'Investigator Dashboard'}</h1>
 
             {investigator.study_description && (

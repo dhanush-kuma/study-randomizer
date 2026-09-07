@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
+from .core.validators import normalize_email
+
 PASSWORD_MIN_LENGTH = 12
 PASSWORD_MAX_LENGTH = 128
 
@@ -254,10 +256,7 @@ class InviteInvestigatorRequest(BaseModel):
     @field_validator("email")
     @classmethod
     def email_normalized(cls, v: str) -> str:
-        v = v.strip().lower()
-        if not v or "@" not in v:
-            raise ValueError("A valid email address is required")
-        return v
+        return normalize_email(v)
 
 
 class InvestigatorOut(BaseModel):
@@ -322,7 +321,7 @@ class RandomizationRecordOut(BaseModel):
     study_id: int
     sequence_number: int
     kit_code: str
-    treatment_name: str
+    treatment_name: Optional[str] = None
     assigned_patient_id: Optional[str] = None
     assigned_by_investigator_id: Optional[int] = None
     assigned_by_investigator_username: Optional[str] = None

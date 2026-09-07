@@ -16,7 +16,7 @@ ROLE_ORGANIZER = "organizer"
 ROLE_INVESTIGATOR = "investigator"
 
 
-def create_access_token(username: str, role: str) -> str:
+def create_access_token(username: str, role: str, *, session_version: int | None = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     payload = {
         "sub": username,
@@ -24,6 +24,8 @@ def create_access_token(username: str, role: str) -> str:
         "jti": str(uuid.uuid4()),
         "exp": expire,
     }
+    if session_version is not None:
+        payload["sv"] = session_version
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -111,11 +113,24 @@ def get_current_investigator(
     The JWT `sub` stores the investigator's database id (as a string).
     """
     user = _resolve_user(investigator_access_token, ROLE_INVESTIGATOR, db)
-    investigator = db.query(Investigator).filter(
-        Investigator.id == int(user["username"])
-    ).first()
+    try:
+        investigator_id = int(user["username"])
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token.") from None
+
+    payload = decode_token(investigator_access_token) if investigator_access_token else None
+    token_session_version = payload.get("sv") if payload else None
+
+    investigator = db.query(Investigator).filter(Investigator.id == investigator_id).first()
     if not investigator:
         raise HTTPException(status_code=401, detail="Investigator not found.")
+    if token_session_version is None or token_session_version != investigator.session_version:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
     if investigator.status == "revoked":
         raise HTTPException(status_code=401, detail="Investigator access has been revoked.")
     return investigator
+
+
+def bump_investigator_session(investigator: Investigator) -> None:
+    """Invalidate all outstanding investigator JWTs."""
+    investigator.session_version += 1

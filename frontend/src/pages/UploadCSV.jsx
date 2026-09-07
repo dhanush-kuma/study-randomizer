@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { apiFetch, apiUpload } from '../api'
+import { apiFetch, apiUpload, storeCsrfFromResponse } from '../api'
 import Header from '../components/Header'
 
 // --- Sample CSV content (embedded so no static file config needed) ---
@@ -53,10 +53,26 @@ function UploadCSV() {
   const fileInputRef = useRef(null)
 
   useEffect(() => {
-    apiFetch(`/organizer/studies/${studyId}`)
-      .then((res) => (res.ok ? res.json() : null))
+    apiFetch('/organizer/me')
+      .then(async (res) => {
+        if (!res.ok) {
+          navigate('/organizer/login', { replace: true })
+          return null
+        }
+        const me = await res.json()
+        storeCsrfFromResponse(me)
+        return apiFetch(`/organizer/studies/${studyId}`)
+      })
+      .then((studyRes) => {
+        if (!studyRes) return
+        if (!studyRes.ok) {
+          navigate('/organizer/home', { replace: true })
+          return
+        }
+        return studyRes.json()
+      })
       .then((data) => { if (data) setStudy(data) })
-      .catch(() => navigate('/organizer/home', { replace: true }))
+      .catch(() => navigate('/organizer/login', { replace: true }))
   }, [studyId, navigate])
 
   function handleFileChange(e) {

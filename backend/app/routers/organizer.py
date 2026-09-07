@@ -21,6 +21,7 @@ from ..core.email import send_investigator_credentials
 from ..core.rate_limit import limiter
 from ..core.security import (
     ROLE_ORGANIZER,
+    bump_investigator_session,
     create_access_token,
     get_current_organizer,
     revoke_token,
@@ -236,6 +237,13 @@ def update_study(
             )
 
     updates = payload.model_dump(exclude_unset=True)
+    if study.status == "Active":
+        if "status" in updates and updates["status"] != "Active":
+            raise HTTPException(
+                status_code=400,
+                detail="Active studies are locked and cannot be downgraded.",
+            )
+        updates.pop("status", None)
     if "protocol_code" in updates and updates["protocol_code"] is not None:
         _ensure_protocol_code_available(
             db,
@@ -502,6 +510,7 @@ def revoke_investigator(
         raise HTTPException(status_code=409, detail="Investigator access is already revoked.")
 
     investigator.status = "revoked"
+    bump_investigator_session(investigator)
     db.commit()
     db.refresh(investigator)
     audit(
@@ -537,6 +546,7 @@ def restore_investigator(
 
     # inactive until they log in again; login promotes inactive → active
     investigator.status = "inactive"
+    bump_investigator_session(investigator)
     db.commit()
     db.refresh(investigator)
     audit(
@@ -582,6 +592,7 @@ def reset_investigator_password(
     investigator.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
     # Reset to inactive so the next login is their first effective login
     investigator.status = "inactive"
+    bump_investigator_session(investigator)
     db.flush()
 
     try:

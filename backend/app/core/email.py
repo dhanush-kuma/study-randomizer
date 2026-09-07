@@ -21,10 +21,9 @@ logger = logging.getLogger(__name__)
 def send_email(to: str, subject: str, body: str) -> None:
     if not email_is_configured():
         logger.warning(
-            "Email not configured — would send to %s | subject: %s | body: %s",
+            "Email not configured — would send to %s | subject: %s (body omitted; may contain credentials)",
             to,
             subject,
-            body,
         )
         if IS_PRODUCTION:
             raise RuntimeError("Email service is not configured.")
